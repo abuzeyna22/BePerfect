@@ -12,37 +12,25 @@ body { min-height: 100vh; background: linear-gradient(135deg, #1e3c72 0%, #2a529
 }
 
 /* ====== صندوق تسجيل الدخول ====== */
-.login-box {
-    width: 100%;
-    max-width: 400px;
-    padding: 40px 30px;
-    text-align: center;
-    animation: fadeIn 0.8s ease-out;
-}
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
-}
+.login-container { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+.login-box { width: 100%; max-width: 400px; padding: 40px 30px; text-align: center; animation: fadeIn 0.8s ease-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 .logo-area { margin-bottom: 30px; color: #fff; }
-.logo {
-    width: 60px;
-    height: auto;
-    margin-bottom: 15px;
-    border-radius: 50%;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-}
+.logo { width: 60px; height: auto; margin-bottom: 15px; border-radius: 50%; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
 .logo-area h1 { font-size: 28px; font-weight: 700; letter-spacing: 1px; }
 .subtitle { font-size: 14px; opacity: 0.8; margin-top: 5px; font-weight: 300; }
 
-/* ====== حقول الإدخال (تسجيل الدخول) ====== */
-.login-form .input-group { margin-bottom: 20px; text-align: right; }
-.login-form .input-group label { display: block; color: #fff; margin-bottom: 8px; font-size: 14px; font-weight: 600; }
-.login-form .input-group input {
+/* ====== حقول الإدخال ====== */
+.login-form .input-group, .modal-form .input-group { margin-bottom: 20px; text-align: right; }
+.modal-form .input-group { margin-bottom: 15px; }
+.input-group label { display: block; color: #fff; margin-bottom: 8px; font-size: 14px; font-weight: 600; }
+.input-group input, .input-group select, .input-group textarea {
     width: 100%; padding: 12px 15px; border: 1px solid rgba(255, 255, 255, 0.4); border-radius: 10px;
     background: rgba(255, 255, 255, 0.1); color: #fff; font-size: 14px; transition: all 0.3s ease;
 }
-.login-form .input-group input::placeholder { color: rgba(255, 255, 255, 0.6); }
-.login-form .input-group input:focus { outline: none; background: rgba(255, 255, 255, 0.2); border-color: #ff7b00; box-shadow: 0 0 0 3px rgba(255, 123, 0, 0.2); }
+.input-group input::placeholder, .input-group textarea::placeholder { color: rgba(255, 255, 255, 0.6); }
+.input-group input:focus, .input-group select:focus, .input-group textarea:focus { outline: none; background: rgba(255, 255, 255, 0.2); border-color: #ff7b00; box-shadow: 0 0 0 3px rgba(255, 123, 0, 0.2); }
+.input-group select option { color: #333; }
 
 /* ====== شريط التنقل (Topbar) ====== */
 .topbar { display: flex; justify-content: space-between; align-items: center; padding: 15px 30px; border-radius: 0 0 20px 20px; margin-bottom: 30px; }
@@ -75,14 +63,12 @@ body { min-height: 100vh; background: linear-gradient(135deg, #1e3c72 0%, #2a529
 .search-bar { margin-bottom: 20px; }
 .search-bar input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: #fff; font-size: 14px; }
 .search-bar input::placeholder { color: rgba(255,255,255,0.6); }
-
 .table-container { overflow-x: auto; }
 .data-table { width: 100%; border-collapse: collapse; text-align: right; }
 .data-table th, .data-table td { padding: 12px 10px; border-bottom: 1px solid rgba(255,255,255,0.1); }
 .data-table th { font-weight: 600; opacity: 0.8; }
 .data-table tr:hover { background: rgba(255,255,255,0.05); }
 .status-badge { padding: 4px 10px; border-radius: 12px; font-size: 12px; }
-
 .empty-state { text-align: center; padding: 40px; opacity: 0.7; }
 .pagination { display: flex; justify-content: center; gap: 10px; margin-top: 20px; }
 .page-btn { padding: 5px 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 5px; cursor: pointer; color: #fff; }
@@ -95,14 +81,7 @@ body { min-height: 100vh; background: linear-gradient(135deg, #1e3c72 0%, #2a529
 .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .close-modal { background: none; border: none; color: #fff; font-size: 24px; cursor: pointer; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-.input-group { display: flex; flex-direction: column; margin-bottom: 15px; }
 .input-group.full-width { grid-column: 1 / -1; }
-.input-group label { margin-bottom: 8px; font-size: 14px; }
-.input-group input, .input-group select, .input-group textarea {
-    padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: #fff;
-}
-.input-group select option { color: #333; }
-.input-group textarea { resize: vertical; }
 
 /* ====== الإشعارات ====== */
 #toast-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; width: 90%; max-width: 350px; }
