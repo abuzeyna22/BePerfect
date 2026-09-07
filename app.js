@@ -1,4 +1,4 @@
-const API_URL = 'https://script.google.com/macros/s/AKfycbzUUXVAy-inaPG-orBCqGnQfzudmGJir7362BKR_RdyoOaIpOYwjoyCOAN9t1K7L8jl/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxTuplhzqJmjtg2lqlBmWGT0qOjXRcju6XSKrJSO998BQy30jiv7i9B3TlVigQIBdA8/exec';
 
 function showToast(message, type = 'error') {
     const container = document.getElementById('toast-container');
@@ -64,6 +64,7 @@ if (document.querySelector('.dashboard-body')) {
                 globalSettings = data.data;
                 populateDropdowns();
                 populateEditDropdown();
+                populateImportDropdown();
             }
         } catch (error) { console.error('Settings Error:', error); }
     }
@@ -72,7 +73,6 @@ if (document.querySelector('.dashboard-body')) {
         const branchSelect = document.getElementById('preferredBranch');
         branchSelect.innerHTML = '';
         globalSettings.branches.forEach(b => { branchSelect.innerHTML += `<option value="${b}">${b}</option>`; });
-        
         const specialtySelect = document.getElementById('requiredSpecialty');
         specialtySelect.innerHTML = '';
         globalSettings.specialties.forEach(s => { specialtySelect.innerHTML += `<option value="${s}">${s}</option>`; });
@@ -82,13 +82,17 @@ if (document.querySelector('.dashboard-body')) {
         const type = document.getElementById('editSettingType').value;
         const oldValSelect = document.getElementById('editOldValue');
         oldValSelect.innerHTML = '';
-        
         let items = [];
         if (type === 'Branch') items = globalSettings.branches;
         else if (type === 'Specialty') items = globalSettings.specialties;
         else if (type === 'Specialist') items = globalSettings.specialists;
-        
         items.forEach(item => { oldValSelect.innerHTML += `<option value="${item}">${item}</option>`; });
+    }
+
+    function populateImportDropdown() {
+        const importBranchSelect = document.getElementById('importBranch');
+        importBranchSelect.innerHTML = '';
+        globalSettings.branches.forEach(b => { importBranchSelect.innerHTML += `<option value="${b}">${b}</option>`; });
     }
 
     async function fetchClients(page = 1, search = '') {
@@ -106,7 +110,6 @@ if (document.querySelector('.dashboard-body')) {
         tbody.innerHTML = '';
         if (clients.length === 0) { emptyState.style.display = 'block'; document.getElementById('pagination').innerHTML = ''; return; }
         emptyState.style.display = 'none';
-
         clients.forEach(c => {
             const statusColor = c.Status === 'عميل محتمل' ? '#f5af19' : c.Status === 'تحت الجلسات' ? '#38ef7d' : '#fff';
             tbody.innerHTML += `
@@ -117,7 +120,6 @@ if (document.querySelector('.dashboard-body')) {
                 </tr>
             `;
         });
-
         const totalPages = Math.ceil(total / 20);
         const paginationDiv = document.getElementById('pagination');
         paginationDiv.innerHTML = '';
@@ -139,7 +141,6 @@ if (document.querySelector('.dashboard-body')) {
         const submitBtn = document.getElementById('submitClientBtn');
         const btnText = submitBtn.querySelector('.btn-text');
         const loader = document.getElementById('clientLoader');
-        
         const clientData = {
             action: 'addClient', token,
             fullName: document.getElementById('fullName').value, phone: document.getElementById('phone').value,
@@ -147,7 +148,6 @@ if (document.querySelector('.dashboard-body')) {
             requiredSpecialty: document.getElementById('requiredSpecialty').value, source: document.getElementById('source').value,
             notes: document.getElementById('notes').value, createdBy: sessionStorage.getItem('username')
         };
-
         btnText.style.display = 'none'; loader.style.display = 'block'; submitBtn.disabled = true;
         try {
             const response = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(clientData) });
@@ -160,18 +160,14 @@ if (document.querySelector('.dashboard-body')) {
 
     document.getElementById('logoutBtn').addEventListener('click', () => { sessionStorage.clear(); window.location.href = 'index.html'; });
 
-    // ====== منطق لوحة الأدمن (Admin Panel) ======
+    // ====== منطق لوحة الأدمن ======
     const adminBtn = document.getElementById('adminBtn');
     const adminModal = document.getElementById('adminModal');
-    
     if (sessionStorage.getItem('userRole') === 'Admin') { adminBtn.style.display = 'flex'; }
     adminBtn.addEventListener('click', () => adminModal.classList.add('active'));
     document.getElementById('closeAdminModal').addEventListener('click', () => adminModal.classList.remove('active'));
-
-    // تغيير قائمة التعديل عند تغيير النوع
     document.getElementById('editSettingType').addEventListener('change', populateEditDropdown);
 
-    // إضافة مستخدم
     document.getElementById('addUserForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         const data = { action: 'addUser', token, username: document.getElementById('newUsername').value, password: document.getElementById('newPassword').value, role: document.getElementById('newRole').value, branch: document.getElementById('newUserBranch').value || 'All' };
@@ -182,7 +178,6 @@ if (document.querySelector('.dashboard-body')) {
         } catch (err) { showToast('فشل الاتصال', 'error'); }
     });
 
-    // إضافة إعداد
     document.getElementById('addSettingForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         const data = { action: 'addSetting', token, type: document.getElementById('settingType').value, value: document.getElementById('settingValue').value };
@@ -193,7 +188,6 @@ if (document.querySelector('.dashboard-body')) {
         } catch (err) { showToast('فشل الاتصال', 'error'); }
     });
 
-    // تعديل إعداد
     document.getElementById('editSettingForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         const data = { action: 'updateSetting', token, type: document.getElementById('editSettingType').value, oldValue: document.getElementById('editOldValue').value, newValue: document.getElementById('editNewValue').value };
@@ -202,6 +196,43 @@ if (document.querySelector('.dashboard-body')) {
             const res = await response.json();
             if (res.success) { showToast('تم التعديل بنجاح!', 'success'); document.getElementById('editSettingForm').reset(); fetchSettings(); } else { showToast(res.error, 'error'); }
         } catch (err) { showToast('فشل الاتصال', 'error'); }
+    });
+
+    // منطق استيراد العملاء القدمى
+    document.getElementById('importClientsForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const importBtn = document.getElementById('importBtn');
+        const btnText = importBtn.querySelector('.btn-text');
+        const loader = document.getElementById('importLoader');
+        
+        const rawData = document.getElementById('importData').value;
+        const branch = document.getElementById('importBranch').value;
+        
+        // تحويل النص إلى مصفوفة من الكائنات
+        const lines = rawData.split('\n').filter(line => line.trim() !== '');
+        const clientsArray = lines.map(line => {
+            const parts = line.split(/[,،\t]/); // تقسيم بفاصلة عادية أو عربية أو Tab
+            return { name: parts[0]?.trim(), phone: parts[1]?.trim() };
+        }).filter(c => c.name && c.phone);
+
+        if (clientsArray.length === 0) { return showToast('البيانات غير صحيحة. تأكد من كتابة الاسم والهاتف مفصولين بفاصلة', 'warning'); }
+
+        btnText.style.display = 'none'; loader.style.display = 'block'; importBtn.disabled = true;
+        
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: 'bulkAddClients', token, branch, clients: clientsArray, createdBy: sessionStorage.getItem('username') })
+            });
+            const res = await response.json();
+            if (res.success) {
+                showToast(res.data.message, 'success');
+                document.getElementById('importClientsForm').reset();
+                fetchClients(currentPage, searchQuery); // تحديث الجدول
+            } else { showToast(res.error, 'error'); }
+        } catch (err) { showToast('فشل الاتصال', 'error'); }
+        finally { btnText.style.display = 'inline'; loader.style.display = 'none'; importBtn.disabled = false; }
     });
 
     fetchSettings();
