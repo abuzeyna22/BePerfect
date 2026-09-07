@@ -1,4 +1,4 @@
-const API_URL = 'https://script.google.com/macros/s/AKfycbxddjWQjjM2TP-kTquMjRZXVy8Ov244ykDnWjTfa6ccDK_QQwokBsAWbs6uq6MrLh2f/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycby_b3A5Pzep4yC516VDlQOQYcNGYwh9WBuRmhiTsRUhd0ZpwJApO1tpqPEUuF039P7d/exec';
 
 // ====== دوال مساعدة ======
 function showToast(message, type = 'error') {
