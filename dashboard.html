@@ -10,16 +10,15 @@
 </head>
 <body class="dashboard-body">
 
-    <!-- حاوية الإشعارات -->
     <div id="toast-container"></div>
 
-    <!-- شريط التنقل العلوي (Glassmorphism) -->
     <header class="topbar glass-card">
         <div class="topbar-right">
             <img src="https://i.ibb.co/77D762Y/image.png" alt="Logo" class="topbar-logo">
             <h2>Be Perfect <span class="subtitle-inline">CRM</span></h2>
         </div>
         <div class="topbar-left">
+            <button id="adminBtn" class="btn-primary" style="display:none; background: linear-gradient(to right, #11998e, #38ef7d);">⚙️ الإعدادات</button>
             <div class="user-info">
                 <span id="displayUsername">مستخدم</span>
                 <span id="displayRole" class="role-badge">الدور</span>
@@ -28,64 +27,39 @@
         </div>
     </header>
 
-    <!-- المحتوى الرئيسي -->
     <main class="main-content">
-        <!-- كروت الإحصائيات (Glass Cards) -->
         <div class="stats-grid">
-            <div class="glass-card stat-card">
-                <h3>إجمالي العملاء</h3>
-                <p id="totalClients">0</p>
-            </div>
-            <div class="glass-card stat-card">
-                <h3>عملاء اليوم</h3>
-                <p id="todayClients">0</p>
-            </div>
-            <div class="glass-card stat-card">
-                <h3>تحت الجلسات</h3>
-                <p id="activeClients">0</p>
-            </div>
+            <div class="glass-card stat-card"><h3>إجمالي العملاء</h3><p id="totalClients">0</p></div>
+            <div class="glass-card stat-card"><h3>عملاء اليوم</h3><p id="todayClients">0</p></div>
+            <div class="glass-card stat-card"><h3>تحت الجلسات</h3><p id="activeClients">0</p></div>
         </div>
 
-        <!-- قسم إدارة العملاء -->
         <div class="glass-card content-section">
             <div class="section-header">
                 <h2>إدارة العملاء</h2>
                 <button id="addClientBtn" class="btn-primary">+ إضافة عميل جديد</button>
             </div>
-            
-            <!-- شريط البحث -->
             <div class="search-bar">
                 <input type="text" id="searchInput" placeholder="ابحث بالاسم أو رقم الهاتف...">
             </div>
-
-            <!-- جدول العملاء -->
             <div class="table-container">
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>الاسم</th>
-                            <th>الهاتف</th>
-                            <th>الفرع</th>
-                            <th>التخصص</th>
-                            <th>الحالة</th>
-                            <th>إجراءات</th>
+                            <th>الاسم</th><th>الهاتف</th><th>الفرع</th><th>التخصص</th><th>الحالة</th><th>إجراءات</th>
                         </tr>
                     </thead>
-                    <tbody id="clientsTableBody">
-                        <!-- سيتم ملؤها بواسطة JavaScript -->
-                    </tbody>
+                    <tbody id="clientsTableBody"></tbody>
                 </table>
                 <div id="emptyState" class="empty-state" style="display: none;">
                     <p>لا يوجد عملاء لعرضهم حالياً. ابدأ بإضافة عميل جديد!</p>
                 </div>
             </div>
-            
-            <!-- الترقيم (Pagination) -->
             <div id="pagination" class="pagination"></div>
         </div>
     </main>
 
-    <!-- نافذة إضافة عميل منبثقة (Modal) -->
+    <!-- نافذة إضافة عميل -->
     <div id="clientModal" class="modal-overlay">
         <div class="glass-card modal-box">
             <div class="modal-header">
@@ -94,26 +68,11 @@
             </div>
             <form id="addClientForm" class="modal-form">
                 <div class="form-grid">
-                    <div class="input-group">
-                        <label>الاسم الكامل *</label>
-                        <input type="text" id="fullName" required>
-                    </div>
-                    <div class="input-group">
-                        <label>رقم الهاتف (يبدأ بـ + أو 0) *</label>
-                        <input type="text" id="phone" required>
-                    </div>
-                    <div class="input-group">
-                        <label>العمر *</label>
-                        <input type="number" id="age" min="1" max="120" required>
-                    </div>
-                    <div class="input-group">
-                        <label>الفرع المفضل *</label>
-                        <select id="preferredBranch" required></select>
-                    </div>
-                    <div class="input-group">
-                        <label>التخصص المطلوب *</label>
-                        <select id="requiredSpecialty" required></select>
-                    </div>
+                    <div class="input-group"><label>الاسم الكامل *</label><input type="text" id="fullName" required></div>
+                    <div class="input-group"><label>رقم الهاتف *</label><input type="text" id="phone" required></div>
+                    <div class="input-group"><label>العمر *</label><input type="number" id="age" min="1" max="120" required></div>
+                    <div class="input-group"><label>الفرع المفضل *</label><select id="preferredBranch" required></select></div>
+                    <div class="input-group"><label>التخصص المطلوب *</label><select id="requiredSpecialty" required></select></div>
                     <div class="input-group">
                         <label>مصدر العميل</label>
                         <select id="source">
@@ -125,14 +84,54 @@
                         </select>
                     </div>
                 </div>
-                <div class="input-group full-width">
-                    <label>ملاحظات أولية</label>
-                    <textarea id="notes" rows="3"></textarea>
-                </div>
+                <div class="input-group full-width"><label>ملاحظات أولية</label><textarea id="notes" rows="3"></textarea></div>
                 <button type="submit" id="submitClientBtn" class="btn-primary">
                     <span class="btn-text">حفظ العميل</span>
                     <div class="loader" id="clientLoader"></div>
                 </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- نافذة إعدادات الأدمن -->
+    <div id="adminModal" class="modal-overlay">
+        <div class="glass-card modal-box">
+            <div class="modal-header">
+                <h3>إعدادات النظام (للأدمن فقط)</h3>
+                <button class="close-modal" id="closeAdminModal">&times;</button>
+            </div>
+            <h4 style="margin-bottom:15px; color:#ff9a44; text-align:right;">إضافة مستخدم جديد</h4>
+            <form id="addUserForm" class="modal-form">
+                <div class="form-grid">
+                    <div class="input-group"><label>اسم المستخدم *</label><input type="text" id="newUsername" required></div>
+                    <div class="input-group"><label>كلمة المرور *</label><input type="text" id="newPassword" required></div>
+                    <div class="input-group">
+                        <label>الصلاحية *</label>
+                        <select id="newRole">
+                            <option value="Secretary">سكرتير</option>
+                            <option value="Moderator">مودريتور</option>
+                            <option value="Admin">أدمن</option>
+                        </select>
+                    </div>
+                    <div class="input-group"><label>الفرع</label><input type="text" id="newUserBranch" placeholder="اكتب All لكل الفروع"></div>
+                </div>
+                <button type="submit" class="btn-primary">حفظ المستخدم</button>
+            </form>
+            <hr style="margin: 20px 0; border-color: rgba(255,255,255,0.2);">
+            <h4 style="margin-bottom:15px; color:#ff9a44; text-align:right;">إضافة (فرع / تخصص / أخصائي)</h4>
+            <form id="addSettingForm" class="modal-form">
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label>النوع *</label>
+                        <select id="settingType">
+                            <option value="Branch">فرع</option>
+                            <option value="Specialty">تخصص</option>
+                            <option value="Specialist">أخصائي</option>
+                        </select>
+                    </div>
+                    <div class="input-group"><label>الاسم *</label><input type="text" id="settingValue" required placeholder="مثال: فرع المنوفية"></div>
+                </div>
+                <button type="submit" class="btn-primary">حفظ الإعداد</button>
             </form>
         </div>
     </div>
