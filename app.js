@@ -1,4 +1,4 @@
-const API_URL = 'https://script.google.com/macros/s/AKfycby_b3A5Pzep4yC516VDlQOQYcNGYwh9WBuRmhiTsRUhd0ZpwJApO1tpqPEUuF039P7d/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycby4-YZOf_PeobpWIC-GYjB0nlnpPM0cnV1-Ye0Xv90Mkz_E23V-GGBTFobYJBKfYZbS/exec';
 
 // ====== دوال مساعدة ======
 function showToast(message, type = 'error') {
@@ -53,19 +53,15 @@ if (document.getElementById('loginForm')) {
 }
 
 // ====== منطق لوحة التحكم (dashboard.html) ======
-if (document.getElementById('dashboardBody') || document.querySelector('.dashboard-body')) {
+if (document.querySelector('.dashboard-body')) {
     const token = checkAuth();
     
-    // تعبئة بيانات المستخدم في Topbar
     document.getElementById('displayUsername').innerText = sessionStorage.getItem('username') || 'مستخدم';
     document.getElementById('displayRole').innerText = sessionStorage.getItem('userRole') || 'دور';
 
-    // متغيرات الترقيم والبحث
     let currentPage = 1;
     let searchQuery = '';
-    let searchTimeout;
 
-    // دالة جلب الإعدادات (الفروع والتخصصات)
     async function fetchSettings() {
         try {
             const url = `${API_URL}?action=getSettings`;
@@ -76,28 +72,27 @@ if (document.getElementById('dashboardBody') || document.querySelector('.dashboa
                 const specialties = data.data.specialties;
                 
                 const branchSelect = document.getElementById('preferredBranch');
+                branchSelect.innerHTML = '';
                 branches.forEach(b => { branchSelect.innerHTML += `<option value="${b}">${b}</option>`; });
                 
                 const specialtySelect = document.getElementById('requiredSpecialty');
+                specialtySelect.innerHTML = '';
                 specialties.forEach(s => { specialtySelect.innerHTML += `<option value="${s}">${s}</option>`; });
             }
         } catch (error) { console.error('Settings Error:', error); }
     }
 
-    // دالة جلب العملاء
     async function fetchClients(page = 1, search = '') {
         try {
             const url = `${API_URL}?action=getClients&token=${token}&page=${page}&search=${encodeURIComponent(search)}`;
             const response = await fetch(url);
             const data = await response.json();
-            
             if (data.success) {
                 renderTable(data.data.clients, data.data.total, page);
             }
         } catch (error) { console.error('Fetch Clients Error:', error); }
     }
 
-    // دالة رسم جدول العملاء
     function renderTable(clients, total, page) {
         const tbody = document.getElementById('clientsTableBody');
         const emptyState = document.getElementById('emptyState');
@@ -124,7 +119,6 @@ if (document.getElementById('dashboardBody') || document.querySelector('.dashboa
             `;
         });
 
-        // رسم الترقيم
         const totalPages = Math.ceil(total / 20);
         const paginationDiv = document.getElementById('pagination');
         paginationDiv.innerHTML = '';
@@ -133,7 +127,6 @@ if (document.getElementById('dashboardBody') || document.querySelector('.dashboa
         }
     }
 
-    // البحث الفوري (Debounce)
     document.getElementById('searchInput').addEventListener('input', (e) => {
         clearTimeout(searchTimeout);
         searchTimeout = setTimeout(() => {
@@ -143,12 +136,10 @@ if (document.getElementById('dashboardBody') || document.querySelector('.dashboa
         }, 500);
     });
 
-    // فتح وإغلاق النافذة المنبثقة (Modal)
     const modal = document.getElementById('clientModal');
     document.getElementById('addClientBtn').addEventListener('click', () => modal.classList.add('active'));
     document.getElementById('closeModalBtn').addEventListener('click', () => modal.classList.remove('active'));
 
-    // إضافة عميل جديد
     document.getElementById('addClientForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         const submitBtn = document.getElementById('submitClientBtn');
@@ -168,7 +159,6 @@ if (document.getElementById('dashboardBody') || document.querySelector('.dashboa
         };
 
         btnText.style.display = 'none'; loader.style.display = 'block'; submitBtn.disabled = true;
-
         try {
             const response = await fetch(API_URL, {
                 method: 'POST',
@@ -176,24 +166,77 @@ if (document.getElementById('dashboardBody') || document.querySelector('.dashboa
                 body: JSON.stringify(clientData)
             });
             const data = await response.json();
-
             if (data.success) {
                 showToast('تم إضافة العميل بنجاح!', 'success');
                 document.getElementById('addClientForm').reset();
                 modal.classList.remove('active');
-                fetchClients(currentPage, searchQuery); // تحديث الجدول
+                fetchClients(currentPage, searchQuery);
             } else { showToast(data.error, 'error'); }
         } catch (error) { showToast('فشل الاتصال بالخادم', 'error'); }
         finally { btnText.style.display = 'inline'; loader.style.display = 'none'; submitBtn.disabled = false; }
     });
 
-    // زر الخروج
     document.getElementById('logoutBtn').addEventListener('click', () => {
         sessionStorage.clear();
         window.location.href = 'index.html';
     });
 
-    // تشغيل الدوال عند تحميل الصفحة
+    // ====== منطق لوحة الأدمن (Admin Panel) ======
+    const adminBtn = document.getElementById('adminBtn');
+    const adminModal = document.getElementById('adminModal');
+    
+    if (sessionStorage.getItem('userRole') === 'Admin') {
+        adminBtn.style.display = 'flex';
+    }
+
+    adminBtn.addEventListener('click', () => adminModal.classList.add('active'));
+    document.getElementById('closeAdminModal').addEventListener('click', () => adminModal.classList.remove('active'));
+
+    document.getElementById('addUserForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const data = {
+            action: 'addUser', token,
+            username: document.getElementById('newUsername').value,
+            password: document.getElementById('newPassword').value,
+            role: document.getElementById('newRole').value,
+            branch: document.getElementById('newUserBranch').value || 'All'
+        };
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(data)
+            });
+            const res = await response.json();
+            if (res.success) {
+                showToast('تم إضافة المستخدم بنجاح!', 'success');
+                document.getElementById('addUserForm').reset();
+            } else { showToast(res.error, 'error'); }
+        } catch (err) { showToast('فشل الاتصال', 'error'); }
+    });
+
+    document.getElementById('addSettingForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const data = {
+            action: 'addSetting', token,
+            type: document.getElementById('settingType').value,
+            value: document.getElementById('settingValue').value
+        };
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(data)
+            });
+            const res = await response.json();
+            if (res.success) {
+                showToast('تمت الإضافة بنجاح!', 'success');
+                document.getElementById('addSettingForm').reset();
+                fetchSettings();
+            } else { showToast(res.error, 'error'); }
+        } catch (err) { showToast('فشل الاتصال', 'error'); }
+    });
+
     fetchSettings();
     fetchClients(currentPage, searchQuery);
 }
