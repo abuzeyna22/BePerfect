@@ -1,4 +1,4 @@
-const API_URL = 'https://script.google.com/macros/s/AKfycbxXEcDwIvQkoYae3EwoYmTIN058L4ouXSIDLrJhgh_GfYOjgHaSTjBskJKmn-PqzyJm/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxy08Cfir5R6OLUN9IocfQRtNh2TJx0s3lOkVh5v9OJzlBYYmrei7LVKfCMKRYCPWDl/exec';
 
 function showToast(message, type = 'error') {
     const container = document.getElementById('toast-container');
@@ -53,6 +53,7 @@ if (document.querySelector('.dashboard-body')) {
 
     let currentPage = 1;
     let searchQuery = '';
+    let currentDetailClientId = '';
     let globalSettings = { branches: [], specialties: [], specialists: [] };
 
     async function fetchSettings() {
@@ -109,20 +110,41 @@ if (document.querySelector('.dashboard-body')) {
         tbody.innerHTML = '';
         if (clients.length === 0) { emptyState.style.display = 'block'; document.getElementById('pagination').innerHTML = ''; return; }
         emptyState.style.display = 'none';
+        
         clients.forEach(c => {
             const statusColor = c.Status === 'عميل محتمل' ? '#f5af19' : c.Status === 'تحت الجلسات' ? '#38ef7d' : '#fff';
             tbody.innerHTML += `
                 <tr>
-                    <td>${c.FullName}</td><td>${c.Phone}</td><td>${c.PreferredBranch}</td><td>${c.RequiredSpecialty}</td>
+                    <td><span style="background:rgba(255,255,255,0.1); padding:3px 8px; border-radius:5px; font-size:12px;">${c.ClientID}</span></td>
+                    <td>${c.FullName}</td>
+                    <td>${c.Phone}</td>
+                    <td>${c.PreferredBranch}</td>
+                    <td>${c.RequiredSpecialty}</td>
                     <td><span class="status-badge" style="background:${statusColor}30; color:${statusColor};">${c.Status}</span></td>
-                    <td><button class="btn-primary" style="padding:5px 10px; font-size:12px;">تفاصيل</button></td>
+                    <td><button class="btn-primary btn-details" data-clientid="${c.ClientID}" style="padding:5px 10px; font-size:12px;">تفاصيل</button></td>
                 </tr>
             `;
         });
+
+        // إصلاح الترقيم (Pagination)
         const totalPages = Math.ceil(total / 20);
         const paginationDiv = document.getElementById('pagination');
         paginationDiv.innerHTML = '';
-        for (let i = 1; i <= totalPages; i++) { paginationDiv.innerHTML += `<button class="page-btn ${i === page ? 'active' : ''}" onclick="fetchClients(${i}, '${searchQuery}')">${i}</button>`; }
+        for (let i = 1; i <= totalPages; i++) {
+            const btn = document.createElement('button');
+            btn.className = `page-btn ${i === page ? 'active' : ''}`;
+            btn.innerText = i;
+            btn.addEventListener('click', () => {
+                currentPage = i;
+                fetchClients(currentPage, searchQuery);
+            });
+            paginationDiv.appendChild(btn);
+        }
+
+        // إصلاح زر التفاصيل (Details)
+        document.querySelectorAll('.btn-details').forEach(btn => {
+            btn.addEventListener('click', (e) => openClientDetails(e.target.getAttribute('data-clientid')));
+        });
     }
 
     let searchTimeout;
@@ -158,6 +180,71 @@ if (document.querySelector('.dashboard-body')) {
     });
 
     document.getElementById('logoutBtn').addEventListener('click', () => { sessionStorage.clear(); window.location.href = 'index.html'; });
+
+    // ====== منطق كارت تفاصيل العميل ======
+    const detailsModal = document.getElementById('clientDetailsModal');
+    document.getElementById('closeDetailsModal').addEventListener('click', () => detailsModal.classList.remove('active'));
+
+    async function openClientDetails(clientId) {
+        currentDetailClientId = clientId;
+        try {
+            // جلب بيانات العميل
+            const res = await fetch(`${API_URL}?action=getClientById&token=${token}&clientId=${clientId}`);
+            const data = await res.json();
+            if (!data.success) return showToast(data.error, 'error');
+            
+            const client = data.data;
+            document.getElementById('detailClientName').innerText = client.FullName;
+            document.getElementById('detailClientID').value = client.ClientID;
+            document.getElementById('detailPhone').value = client.Phone;
+            
+            // تعبئة قائمة الفروع في كارت التفاصيل
+            const branchSelect = document.getElementById('detailBranch');
+            branchSelect.innerHTML = '';
+            globalSettings.branches.forEach(b => { branchSelect.innerHTML += `<option value="${b}" ${b === client.PreferredBranch ? 'selected' : ''}>${b}</option>`; });
+            
+            // تعبئة قائمة الأخصائيين
+            const specialistSelect = document.getElementById('detailSpecialist');
+            specialistSelect.innerHTML = '<option value="">لا يوجد</option>';
+            globalSettings.specialists.forEach(s => { specialistSelect.innerHTML += `<option value="${s}" ${s === client.AssignedSpecialist ? 'selected' : ''}>${s}</option>`; });
+
+            // جلب سجل التغييرات (History)
+            const resHist = await fetch(`${API_URL}?action=getHistory&token=${token}&clientId=${clientId}`);
+            const dataHist = await resHist.json();
+            const historyBody = document.getElementById('historyTableBody');
+            historyBody.innerHTML = '';
+            
+            if (dataHist.success && dataHist.data.length > 0) {
+                dataHist.data.forEach(h => {
+                    const date = new Date(h.date).toLocaleString('ar-EG');
+                    historyBody.innerHTML += `<tr><td>${h.field}</td><td>${h.oldVal}</td><td>${h.newVal}</td><td>${h.changedBy}</td><td>${date}</td></tr>`;
+                });
+            } else {
+                historyBody.innerHTML = `<tr><td colspan="5" style="text-align:center; opacity:0.7;">لا يوجد تغييرات مسجلة</td></tr>`;
+            }
+            
+            detailsModal.classList.add('active');
+        } catch (err) { showToast('فشل تحميل بيانات العميل', 'error'); }
+    }
+
+    // حفظ تعديلات العميل (الفرع والأخصائي)
+    document.getElementById('saveClientChangesBtn').addEventListener('click', async () => {
+        const data = {
+            action: 'updateClient', token, clientId: currentDetailClientId,
+            branch: document.getElementById('detailBranch').value,
+            specialist: document.getElementById('detailSpecialist').value,
+            changedBy: sessionStorage.getItem('username')
+        };
+        try {
+            const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(data) });
+            const result = await res.json();
+            if (result.success) {
+                showToast(result.data.message, 'success');
+                openClientDetails(currentDetailClientId); // تحديث الكارت
+                fetchClients(currentPage, searchQuery); // تحديث الجدول
+            } else { showToast(result.error, 'error'); }
+        } catch (err) { showToast('فشل الاتصال', 'error'); }
+    });
 
     // ====== منطق لوحة الأدمن ======
     const adminBtn = document.getElementById('adminBtn');
@@ -197,7 +284,6 @@ if (document.querySelector('.dashboard-body')) {
         } catch (err) { showToast('فشل الاتصال', 'error'); }
     });
 
-    // منطق استيراد العملاء (CSV) - القارئ الذكي
     document.getElementById('importClientsForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         const importBtn = document.getElementById('importBtn');
@@ -207,7 +293,6 @@ if (document.querySelector('.dashboard-body')) {
         const branch = document.getElementById('importBranch').value;
         
         if (!fileInput.files[0]) { return showToast('يرجى اختيار ملف CSV', 'warning'); }
-
         btnText.style.display = 'none'; loader.style.display = 'block'; importBtn.disabled = true;
 
         try {
@@ -215,36 +300,24 @@ if (document.querySelector('.dashboard-body')) {
             const text = await file.text();
             const lines = text.split('\n').filter(line => line.trim() !== '');
             const clientsArray = [];
-            
-            // ترتيب أعمدة ملفك القديم: 
-            // 0:رقم مسلسل, 1:التاريخ, 2:الإسم, 3:رقم التليفون, 4:العمر الزمني, 5:نوع الإجراء, 6:جهة التحويل, 7:من فرع, 8:الأخصائي, 9:اتمام الحجز, 10:اليوم, 11:الساعة, 12:إتمام الحضور, 13:ملاحظات
-            const startIndex = 1; // نتخطى السطر الأول (عناوين الأعمدة)
+            const startIndex = 1; // نتخطى عناوين الأعمدة
             
             for (let i = startIndex; i < lines.length; i++) {
-                // تقسيم السطر بفاصلة أو علامة Tab
                 const parts = lines[i].split(/[,،\t]/);
                 const cleanPart = (p) => p ? p.replace(/^"|"$/g, '').trim() : '';
-                
-                const name = cleanPart(parts[2]); // الإسم
-                const phone = cleanPart(parts[3]); // رقم التليفون
-                const age = cleanPart(parts[4]); // العمر الزمني
-                const csvBranch = cleanPart(parts[7]); // من فرع
-                const specialist = cleanPart(parts[8]); // الأخصائي
-                const notes = cleanPart(parts[13]); // ملاحظات
-                
-                if (name && phone) {
-                    clientsArray.push({ name, phone, age, csvBranch, specialist, notes });
-                }
+                const name = cleanPart(parts[2]); const phone = cleanPart(parts[3]);
+                const age = cleanPart(parts[4]); const csvBranch = cleanPart(parts[7]);
+                const specialist = cleanPart(parts[8]); const notes = cleanPart(parts[13]);
+                if (name && phone) { clientsArray.push({ name, phone, age, csvBranch, specialist, notes }); }
             }
 
             if (clientsArray.length === 0) { 
                 btnText.style.display = 'inline'; loader.style.display = 'none'; importBtn.disabled = false;
-                return showToast('لم يتم العثور على بيانات صحيحة في الملف', 'warning'); 
+                return showToast('لم يتم العثور على بيانات صحيحة', 'warning'); 
             }
 
             const response = await fetch(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({ action: 'bulkAddClients', token, branch, clients: clientsArray, createdBy: sessionStorage.getItem('username') })
             });
             const res = await response.json();
@@ -253,10 +326,7 @@ if (document.querySelector('.dashboard-body')) {
                 document.getElementById('importClientsForm').reset();
                 fetchClients(currentPage, searchQuery); 
             } else { showToast(res.error, 'error'); }
-        } catch (err) { 
-            console.error('Import Error:', err);
-            showToast('فشل قراءة الملف أو الاتصال بالخادم', 'error'); 
-        }
+        } catch (err) { showToast('فشل قراءة الملف', 'error'); }
         finally { btnText.style.display = 'inline'; loader.style.display = 'none'; importBtn.disabled = false; }
     });
 
