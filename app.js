@@ -1,4 +1,4 @@
-const API_URL = 'https://script.google.com/macros/s/AKfycbxTuplhzqJmjtg2lqlBmWGT0qOjXRcju6XSKrJSO998BQy30jiv7i9B3TlVigQIBdA8/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxXEcDwIvQkoYae3EwoYmTIN058L4ouXSIDLrJhgh_GfYOjgHaSTjBskJKmn-PqzyJm/exec';
 
 function showToast(message, type = 'error') {
     const container = document.getElementById('toast-container');
@@ -57,8 +57,7 @@ if (document.querySelector('.dashboard-body')) {
 
     async function fetchSettings() {
         try {
-            const url = `${API_URL}?action=getSettings`;
-            const response = await fetch(url);
+            const response = await fetch(`${API_URL}?action=getSettings`);
             const data = await response.json();
             if (data.success) {
                 globalSettings = data.data;
@@ -198,28 +197,51 @@ if (document.querySelector('.dashboard-body')) {
         } catch (err) { showToast('فشل الاتصال', 'error'); }
     });
 
-    // منطق استيراد العملاء القدمى
+    // منطق استيراد العملاء (CSV) - القارئ الذكي
     document.getElementById('importClientsForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         const importBtn = document.getElementById('importBtn');
         const btnText = importBtn.querySelector('.btn-text');
         const loader = document.getElementById('importLoader');
-        
-        const rawData = document.getElementById('importData').value;
+        const fileInput = document.getElementById('importFile');
         const branch = document.getElementById('importBranch').value;
         
-        // تحويل النص إلى مصفوفة من الكائنات
-        const lines = rawData.split('\n').filter(line => line.trim() !== '');
-        const clientsArray = lines.map(line => {
-            const parts = line.split(/[,،\t]/); // تقسيم بفاصلة عادية أو عربية أو Tab
-            return { name: parts[0]?.trim(), phone: parts[1]?.trim() };
-        }).filter(c => c.name && c.phone);
-
-        if (clientsArray.length === 0) { return showToast('البيانات غير صحيحة. تأكد من كتابة الاسم والهاتف مفصولين بفاصلة', 'warning'); }
+        if (!fileInput.files[0]) { return showToast('يرجى اختيار ملف CSV', 'warning'); }
 
         btnText.style.display = 'none'; loader.style.display = 'block'; importBtn.disabled = true;
-        
+
         try {
+            const file = fileInput.files[0];
+            const text = await file.text();
+            const lines = text.split('\n').filter(line => line.trim() !== '');
+            const clientsArray = [];
+            
+            // ترتيب أعمدة ملفك القديم: 
+            // 0:رقم مسلسل, 1:التاريخ, 2:الإسم, 3:رقم التليفون, 4:العمر الزمني, 5:نوع الإجراء, 6:جهة التحويل, 7:من فرع, 8:الأخصائي, 9:اتمام الحجز, 10:اليوم, 11:الساعة, 12:إتمام الحضور, 13:ملاحظات
+            const startIndex = 1; // نتخطى السطر الأول (عناوين الأعمدة)
+            
+            for (let i = startIndex; i < lines.length; i++) {
+                // تقسيم السطر بفاصلة أو علامة Tab
+                const parts = lines[i].split(/[,،\t]/);
+                const cleanPart = (p) => p ? p.replace(/^"|"$/g, '').trim() : '';
+                
+                const name = cleanPart(parts[2]); // الإسم
+                const phone = cleanPart(parts[3]); // رقم التليفون
+                const age = cleanPart(parts[4]); // العمر الزمني
+                const csvBranch = cleanPart(parts[7]); // من فرع
+                const specialist = cleanPart(parts[8]); // الأخصائي
+                const notes = cleanPart(parts[13]); // ملاحظات
+                
+                if (name && phone) {
+                    clientsArray.push({ name, phone, age, csvBranch, specialist, notes });
+                }
+            }
+
+            if (clientsArray.length === 0) { 
+                btnText.style.display = 'inline'; loader.style.display = 'none'; importBtn.disabled = false;
+                return showToast('لم يتم العثور على بيانات صحيحة في الملف', 'warning'); 
+            }
+
             const response = await fetch(API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -229,9 +251,12 @@ if (document.querySelector('.dashboard-body')) {
             if (res.success) {
                 showToast(res.data.message, 'success');
                 document.getElementById('importClientsForm').reset();
-                fetchClients(currentPage, searchQuery); // تحديث الجدول
+                fetchClients(currentPage, searchQuery); 
             } else { showToast(res.error, 'error'); }
-        } catch (err) { showToast('فشل الاتصال', 'error'); }
+        } catch (err) { 
+            console.error('Import Error:', err);
+            showToast('فشل قراءة الملف أو الاتصال بالخادم', 'error'); 
+        }
         finally { btnText.style.display = 'inline'; loader.style.display = 'none'; importBtn.disabled = false; }
     });
 
