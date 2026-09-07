@@ -46,7 +46,7 @@
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>الاسم</th><th>الهاتف</th><th>الفرع</th><th>التخصص</th><th>الحالة</th><th>إجراءات</th>
+                            <th>كود العميل</th><th>الاسم</th><th>الهاتف</th><th>الفرع</th><th>التخصص</th><th>الحالة</th><th>إجراءات</th>
                         </tr>
                     </thead>
                     <tbody id="clientsTableBody"></tbody>
@@ -93,6 +93,36 @@
         </div>
     </div>
 
+    <!-- نافذة تفاصيل وتعديل العميل -->
+    <div id="clientDetailsModal" class="modal-overlay">
+        <div class="glass-card modal-box">
+            <div class="modal-header">
+                <h3>ملف العميل: <span id="detailClientName" style="color:#ff9a44;"></span></h3>
+                <button class="close-modal" id="closeDetailsModal">&times;</button>
+            </div>
+            
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                <div class="input-group"><label>كود العميل (CRM)</label><input type="text" id="detailClientID" readonly></div>
+                <div class="input-group"><label>رقم الهاتف</label><input type="text" id="detailPhone" readonly></div>
+            </div>
+
+            <h4 style="margin-bottom:15px; color:#ff9a44;">تعديل البيانات</h4>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="input-group"><label>الفرع الحالي</label><select id="detailBranch"></select></div>
+                <div class="input-group"><label>الأخصائي المسؤول</label><select id="detailSpecialist"><option value="">لا يوجد</option></select></div>
+            </div>
+            <button id="saveClientChangesBtn" class="btn-primary" style="margin-bottom: 20px; margin-top:10px;">حفظ التعديلات</button>
+
+            <h4 style="margin-bottom:15px; color:#ff9a44;">سجل التغييرات (History)</h4>
+            <div class="table-container" style="max-height: 200px; overflow-y: auto;">
+                <table class="data-table">
+                    <thead><tr><th>الحقل</th><th>القيمة القديمة</th><th>القيمة الجديدة</th><th>بواسطة</th><th>التاريخ</th></tr></thead>
+                    <tbody id="historyTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <!-- نافذة إعدادات الأدمن -->
     <div id="adminModal" class="modal-overlay">
         <div class="glass-card modal-box">
@@ -101,7 +131,7 @@
                 <button class="close-modal" id="closeAdminModal">&times;</button>
             </div>
             
-            <h4 style="margin-bottom:15px; color:#ff9a44; text-align:right;">1. إضافة مستخدم جديد</h4>
+            <h4 style="margin-bottom:15px; color:#ff9a44;">1. إضافة مستخدم جديد</h4>
             <form id="addUserForm" class="modal-form">
                 <div class="form-grid">
                     <div class="input-group"><label>اسم المستخدم *</label><input type="text" id="newUsername" required></div>
@@ -121,7 +151,7 @@
 
             <hr style="margin: 20px 0; border-color: rgba(255,255,255,0.2);">
 
-            <h4 style="margin-bottom:15px; color:#ff9a44; text-align:right;">2. إضافة (فرع / تخصص / أخصائي)</h4>
+            <h4 style="margin-bottom:15px; color:#ff9a44;">2. إضافة (فرع / تخصص / أخصائي)</h4>
             <form id="addSettingForm" class="modal-form">
                 <div class="form-grid">
                     <div class="input-group">
@@ -139,7 +169,7 @@
 
             <hr style="margin: 20px 0; border-color: rgba(255,255,255,0.2);">
 
-            <h4 style="margin-bottom:15px; color:#ff9a44; text-align:right;">3. تعديل (فرع / تخصص / أخصائي)</h4>
+            <h4 style="margin-bottom:15px; color:#ff9a44;">3. تعديل (فرع / تخصص / أخصائي)</h4>
             <form id="editSettingForm" class="modal-form">
                 <div class="form-grid">
                     <div class="input-group">
@@ -164,8 +194,7 @@
 
             <hr style="margin: 20px 0; border-color: rgba(255,255,255,0.2);">
 
-            <!-- 4. استيراد عملاء قدامى (CSV) -->
-            <h4 style="margin-bottom:15px; color:#ff9a44; text-align:right;">4. استيراد بيانات عملاء قدامى (CSV)</h4>
+            <h4 style="margin-bottom:15px; color:#ff9a44;">4. استيراد بيانات عملاء قدامى (CSV)</h4>
             <form id="importClientsForm" class="modal-form">
                 <div class="input-group full-width">
                     <label>الفرع الافتراضي (إذا لم يجد النظام فرع العميل في الملف) *</label>
@@ -174,14 +203,12 @@
                 <div class="input-group full-width">
                     <label>اختر ملف CSV (احفظ ملف الإكسل بصيغة CSV UTF-8) *</label>
                     <input type="file" id="importFile" accept=".csv" required style="width: 100%; padding: 10px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; color: #fff;">
-                    <p style="font-size:12px; opacity:0.7; margin-top:5px;">سيقوم النظام تلقائياً بقراءة (الاسم، الهاتف، العمر، الفرع، الأخصائي، الملاحظات)</p>
                 </div>
                 <button type="submit" id="importBtn" class="btn-primary">
                     <span class="btn-text">رفع واستيراد الملف</span>
                     <div class="loader" id="importLoader"></div>
                 </button>
             </form>
-
         </div>
     </div>
 
