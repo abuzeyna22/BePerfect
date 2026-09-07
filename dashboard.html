@@ -142,7 +142,7 @@
             <hr style="margin: 20px 0; border-color: rgba(255,255,255,0.2);">
 
             <!-- 3. تعديل اسم (فرع/تخصص/أخصائي) -->
-            <h4 style="margin-bottom:15px; color:#ff9a44; text-align:right;">3. تعديل أو حذف (فرع / تخصص / أخصائي)</h4>
+            <h4 style="margin-bottom:15px; color:#ff9a44; text-align:right;">3. تعديل (فرع / تخصص / أخصائي)</h4>
             <form id="editSettingForm" class="modal-form">
                 <div class="form-grid">
                     <div class="input-group">
@@ -158,11 +158,30 @@
                         <select id="editOldValue"></select>
                     </div>
                     <div class="input-group full-width">
-                        <label>الاسم الجديد (اتركه فارغاً إذا أردت حذفه) *</label>
-                        <input type="text" id="editNewValue" placeholder="اكتب الاسم الجديد هنا">
+                        <label>الاسم الجديد *</label>
+                        <input type="text" id="editNewValue" required placeholder="اكتب الاسم الجديد هنا">
                     </div>
                 </div>
                 <button type="submit" class="btn-primary">تعديل الاسم</button>
+            </form>
+
+            <hr style="margin: 20px 0; border-color: rgba(255,255,255,0.2);">
+
+            <!-- 4. استيراد عملاء قدامى -->
+            <h4 style="margin-bottom:15px; color:#ff9a44; text-align:right;">4. استيراد بيانات عملاء قدامى (Excel)</h4>
+            <form id="importClientsForm" class="modal-form">
+                <div class="input-group full-width">
+                    <label>الفرع الذي ينتمي إليه هؤلاء العملاء *</label>
+                    <select id="importBranch" required></select>
+                </div>
+                <div class="input-group full-width">
+                    <label>لصق البيانات (اسم العميل، رقم الهاتف) - كل عميل في سطر منفصل *</label>
+                    <textarea id="importData" rows="6" required placeholder="مثال:&#10;أحمد محمد, 01012345678&#10;سارة علي, 01198765432"></textarea>
+                </div>
+                <button type="submit" id="importBtn" class="btn-primary">
+                    <span class="btn-text">استيراد البيانات</span>
+                    <div class="loader" id="importLoader"></div>
+                </button>
             </form>
 
         </div>
