@@ -101,7 +101,6 @@
                 <button class="close-modal" id="closeAdminModal">&times;</button>
             </div>
             
-            <!-- 1. إضافة مستخدم جديد -->
             <h4 style="margin-bottom:15px; color:#ff9a44; text-align:right;">1. إضافة مستخدم جديد</h4>
             <form id="addUserForm" class="modal-form">
                 <div class="form-grid">
@@ -122,7 +121,6 @@
 
             <hr style="margin: 20px 0; border-color: rgba(255,255,255,0.2);">
 
-            <!-- 2. إضافة (فرع/تخصص/أخصائي) -->
             <h4 style="margin-bottom:15px; color:#ff9a44; text-align:right;">2. إضافة (فرع / تخصص / أخصائي)</h4>
             <form id="addSettingForm" class="modal-form">
                 <div class="form-grid">
@@ -141,7 +139,6 @@
 
             <hr style="margin: 20px 0; border-color: rgba(255,255,255,0.2);">
 
-            <!-- 3. تعديل اسم (فرع/تخصص/أخصائي) -->
             <h4 style="margin-bottom:15px; color:#ff9a44; text-align:right;">3. تعديل (فرع / تخصص / أخصائي)</h4>
             <form id="editSettingForm" class="modal-form">
                 <div class="form-grid">
@@ -167,19 +164,20 @@
 
             <hr style="margin: 20px 0; border-color: rgba(255,255,255,0.2);">
 
-            <!-- 4. استيراد عملاء قدامى -->
-            <h4 style="margin-bottom:15px; color:#ff9a44; text-align:right;">4. استيراد بيانات عملاء قدامى (Excel)</h4>
+            <!-- 4. استيراد عملاء قدامى (CSV) -->
+            <h4 style="margin-bottom:15px; color:#ff9a44; text-align:right;">4. استيراد بيانات عملاء قدامى (CSV)</h4>
             <form id="importClientsForm" class="modal-form">
                 <div class="input-group full-width">
-                    <label>الفرع الذي ينتمي إليه هؤلاء العملاء *</label>
+                    <label>الفرع الافتراضي (إذا لم يجد النظام فرع العميل في الملف) *</label>
                     <select id="importBranch" required></select>
                 </div>
                 <div class="input-group full-width">
-                    <label>لصق البيانات (اسم العميل، رقم الهاتف) - كل عميل في سطر منفصل *</label>
-                    <textarea id="importData" rows="6" required placeholder="مثال:&#10;أحمد محمد, 01012345678&#10;سارة علي, 01198765432"></textarea>
+                    <label>اختر ملف CSV (احفظ ملف الإكسل بصيغة CSV UTF-8) *</label>
+                    <input type="file" id="importFile" accept=".csv" required style="width: 100%; padding: 10px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; color: #fff;">
+                    <p style="font-size:12px; opacity:0.7; margin-top:5px;">سيقوم النظام تلقائياً بقراءة (الاسم، الهاتف، العمر، الفرع، الأخصائي، الملاحظات)</p>
                 </div>
                 <button type="submit" id="importBtn" class="btn-primary">
-                    <span class="btn-text">استيراد البيانات</span>
+                    <span class="btn-text">رفع واستيراد الملف</span>
                     <div class="loader" id="importLoader"></div>
                 </button>
             </form>
