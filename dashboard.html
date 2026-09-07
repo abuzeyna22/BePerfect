@@ -100,7 +100,9 @@
                 <h3>إعدادات النظام (للأدمن فقط)</h3>
                 <button class="close-modal" id="closeAdminModal">&times;</button>
             </div>
-            <h4 style="margin-bottom:15px; color:#ff9a44; text-align:right;">إضافة مستخدم جديد</h4>
+            
+            <!-- 1. إضافة مستخدم جديد -->
+            <h4 style="margin-bottom:15px; color:#ff9a44; text-align:right;">1. إضافة مستخدم جديد</h4>
             <form id="addUserForm" class="modal-form">
                 <div class="form-grid">
                     <div class="input-group"><label>اسم المستخدم *</label><input type="text" id="newUsername" required></div>
@@ -117,8 +119,11 @@
                 </div>
                 <button type="submit" class="btn-primary">حفظ المستخدم</button>
             </form>
+
             <hr style="margin: 20px 0; border-color: rgba(255,255,255,0.2);">
-            <h4 style="margin-bottom:15px; color:#ff9a44; text-align:right;">إضافة (فرع / تخصص / أخصائي)</h4>
+
+            <!-- 2. إضافة (فرع/تخصص/أخصائي) -->
+            <h4 style="margin-bottom:15px; color:#ff9a44; text-align:right;">2. إضافة (فرع / تخصص / أخصائي)</h4>
             <form id="addSettingForm" class="modal-form">
                 <div class="form-grid">
                     <div class="input-group">
@@ -129,10 +134,37 @@
                             <option value="Specialist">أخصائي</option>
                         </select>
                     </div>
-                    <div class="input-group"><label>الاسم *</label><input type="text" id="settingValue" required placeholder="مثال: فرع المنوفية"></div>
+                    <div class="input-group"><label>الاسم *</label><input type="text" id="settingValue" required placeholder="اكتب الاسم الجديد"></div>
                 </div>
                 <button type="submit" class="btn-primary">حفظ الإعداد</button>
             </form>
+
+            <hr style="margin: 20px 0; border-color: rgba(255,255,255,0.2);">
+
+            <!-- 3. تعديل اسم (فرع/تخصص/أخصائي) -->
+            <h4 style="margin-bottom:15px; color:#ff9a44; text-align:right;">3. تعديل أو حذف (فرع / تخصص / أخصائي)</h4>
+            <form id="editSettingForm" class="modal-form">
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label>النوع *</label>
+                        <select id="editSettingType">
+                            <option value="Branch">فرع</option>
+                            <option value="Specialty">تخصص</option>
+                            <option value="Specialist">أخصائي</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>اختر العنصر الحالي *</label>
+                        <select id="editOldValue"></select>
+                    </div>
+                    <div class="input-group full-width">
+                        <label>الاسم الجديد (اتركه فارغاً إذا أردت حذفه) *</label>
+                        <input type="text" id="editNewValue" placeholder="اكتب الاسم الجديد هنا">
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary">تعديل الاسم</button>
+            </form>
+
         </div>
     </div>
 
