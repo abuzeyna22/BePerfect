@@ -11,10 +11,43 @@ body { min-height: 100vh; background: linear-gradient(135deg, #1e3c72 0%, #2a529
     border-radius: 15px; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
 }
 
+/* ====== صندوق تسجيل الدخول ====== */
+.login-box {
+    width: 100%;
+    max-width: 400px;
+    padding: 40px 30px;
+    text-align: center;
+    animation: fadeIn 0.8s ease-out;
+}
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.logo-area { margin-bottom: 30px; color: #fff; }
+.logo {
+    width: 60px;
+    height: auto;
+    margin-bottom: 15px;
+    border-radius: 50%;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+.logo-area h1 { font-size: 28px; font-weight: 700; letter-spacing: 1px; }
+.subtitle { font-size: 14px; opacity: 0.8; margin-top: 5px; font-weight: 300; }
+
+/* ====== حقول الإدخال (تسجيل الدخول) ====== */
+.login-form .input-group { margin-bottom: 20px; text-align: right; }
+.login-form .input-group label { display: block; color: #fff; margin-bottom: 8px; font-size: 14px; font-weight: 600; }
+.login-form .input-group input {
+    width: 100%; padding: 12px 15px; border: 1px solid rgba(255, 255, 255, 0.4); border-radius: 10px;
+    background: rgba(255, 255, 255, 0.1); color: #fff; font-size: 14px; transition: all 0.3s ease;
+}
+.login-form .input-group input::placeholder { color: rgba(255, 255, 255, 0.6); }
+.login-form .input-group input:focus { outline: none; background: rgba(255, 255, 255, 0.2); border-color: #ff7b00; box-shadow: 0 0 0 3px rgba(255, 123, 0, 0.2); }
+
 /* ====== شريط التنقل (Topbar) ====== */
 .topbar { display: flex; justify-content: space-between; align-items: center; padding: 15px 30px; border-radius: 0 0 20px 20px; margin-bottom: 30px; }
 .topbar-right { display: flex; align-items: center; gap: 15px; }
-.topbar-logo { width: 40px; border-radius: 50%; }
+.topbar-logo { width: 40px; height: auto; border-radius: 50%; }
 .topbar-right h2 { font-size: 22px; }
 .subtitle-inline { font-size: 14px; opacity: 0.7; font-weight: 300; }
 .topbar-left { display: flex; align-items: center; gap: 20px; }
