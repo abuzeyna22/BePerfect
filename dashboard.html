@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Be Perfect CRM | لوحة التحكم</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="dashboard-body">
+
+    <!-- حاوية الإشعارات -->
+    <div id="toast-container"></div>
+
+    <!-- شريط التنقل العلوي (Glassmorphism) -->
+    <header class="topbar glass-card">
+        <div class="topbar-right">
+            <img src="https://z-cdn-media.chatglm.cn/files/b02aea42-df39-4ec5-b110-91f29f249bc7.png" alt="Logo" class="topbar-logo">
+            <h2>Be Perfect <span class="subtitle-inline">CRM</span></h2>
+        </div>
+        <div class="topbar-left">
+            <div class="user-info">
+                <span id="displayUsername">مستخدم</span>
+                <span id="displayRole" class="role-badge">الدور</span>
+            </div>
+            <button id="logoutBtn" class="btn-danger">خروج</button>
+        </div>
+    </header>
+
+    <!-- المحتوى الرئيسي -->
+    <main class="main-content">
+        <!-- كروت الإحصائيات (Glass Cards) -->
+        <div class="stats-grid">
+            <div class="glass-card stat-card">
+                <h3>إجمالي العملاء</h3>
+                <p id="totalClients">0</p>
+            </div>
+            <div class="glass-card stat-card">
+                <h3>عملاء اليوم</h3>
+                <p id="todayClients">0</p>
+            </div>
+            <div class="glass-card stat-card">
+                <h3>تحت الجلسات</h3>
+                <p id="activeClients">0</p>
+            </div>
+        </div>
+
+        <!-- قسم إدارة العملاء -->
+        <div class="glass-card content-section">
+            <div class="section-header">
+                <h2>إدارة العملاء</h2>
+                <button id="addClientBtn" class="btn-primary">+ إضافة عميل جديد</button>
+            </div>
+            
+            <!-- شريط البحث -->
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="ابحث بالاسم أو رقم الهاتف...">
+            </div>
+
+            <!-- جدول العملاء -->
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>الاسم</th>
+                            <th>الهاتف</th>
+                            <th>الفرع</th>
+                            <th>التخصص</th>
+                            <th>الحالة</th>
+                            <th>إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clientsTableBody">
+                        <!-- سيتم ملؤها بواسطة JavaScript -->
+                    </tbody>
+                </table>
+                <div id="emptyState" class="empty-state" style="display: none;">
+                    <p>لا يوجد عملاء لعرضهم حالياً. ابدأ بإضافة عميل جديد!</p>
+                </div>
+            </div>
+            
+            <!-- الترقيم (Pagination) -->
+            <div id="pagination" class="pagination"></div>
+        </div>
+    </main>
+
+    <!-- نافذة إضافة عميل منبثقة (Modal) -->
+    <div id="clientModal" class="modal-overlay">
+        <div class="glass-card modal-box">
+            <div class="modal-header">
+                <h3>تسجيل عميل جديد</h3>
+                <button class="close-modal" id="closeModalBtn">&times;</button>
+            </div>
+            <form id="addClientForm" class="modal-form">
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label>الاسم الكامل *</label>
+                        <input type="text" id="fullName" required>
+                    </div>
+                    <div class="input-group">
+                        <label>رقم الهاتف (يبدأ بـ + أو 0) *</label>
+                        <input type="text" id="phone" required>
+                    </div>
+                    <div class="input-group">
+                        <label>العمر *</label>
+                        <input type="number" id="age" min="1" max="120" required>
+                    </div>
+                    <div class="input-group">
+                        <label>الفرع المفضل *</label>
+                        <select id="preferredBranch" required></select>
+                    </div>
+                    <div class="input-group">
+                        <label>التخصص المطلوب *</label>
+                        <select id="requiredSpecialty" required></select>
+                    </div>
+                    <div class="input-group">
+                        <label>مصدر العميل</label>
+                        <select id="source">
+                            <option value="سوشيال ميديا">سوشيال ميديا</option>
+                            <option value="مكالمة مباشرة">مكالمة مباشرة</option>
+                            <option value="زيارة فرع">زيارة فرع</option>
+                            <option value="إحالة">إحالة</option>
+                            <option value="ورشة عمل">ورشة عمل</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="input-group full-width">
+                    <label>ملاحظات أولية</label>
+                    <textarea id="notes" rows="3"></textarea>
+                </div>
+                <button type="submit" id="submitClientBtn" class="btn-primary">
+                    <span class="btn-text">حفظ العميل</span>
+                    <div class="loader" id="clientLoader"></div>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
