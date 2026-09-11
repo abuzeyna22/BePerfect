@@ -64,8 +64,7 @@ if (document.querySelector('.dashboard-body')) {
 
     let currentPage = 1, searchQuery = '', currentDetailClientId = '';
     let globalSettings = { branches: [], specialties: [], specialists: [], sources: [] };
-    let chatPolling;
-    let allUsersForMention = []; // مصفوفة مستخدمي المنشن
+    let chatPolling, allUsersForMention = [], allUsersForEdit = [];
 
     async function fetchSettings() {
         try {
@@ -168,7 +167,6 @@ if (document.querySelector('.dashboard-body')) {
 
     document.getElementById('logoutBtn').addEventListener('click', () => { sessionStorage.clear(); window.location.href = 'index.html'; });
 
-    // ====== كارت تفاصيل العميل ======
     const detailsModal = document.getElementById('clientDetailsModal');
     document.getElementById('closeDetailsModal').addEventListener('click', () => detailsModal.classList.remove('active'));
 
@@ -203,10 +201,7 @@ if (document.querySelector('.dashboard-body')) {
         if (dataHist.success && dataHist.data.length > 0) {
             dataHist.data.forEach(h => {
                 const date = new Date(h.date).toLocaleString('ar-EG');
-                historyBody.innerHTML += `<tr>
-                    <td>${h.field}</td><td>${h.oldVal}</td><td>${h.newVal}</td>
-                    <td>${h.changedBy}</td><td>${date}</td>
-                </tr>`;
+                historyBody.innerHTML += `<tr><td>${h.field}</td><td>${h.oldVal}</td><td>${h.newVal}</td><td>${h.changedBy}</td><td>${date}</td></tr>`;
             });
         } else { historyBody.innerHTML = `<tr><td colspan="5" style="text-align:center; opacity:0.7;">لا يوجد تغييرات مسجلة</td></tr>`; }
     }
@@ -214,25 +209,17 @@ if (document.querySelector('.dashboard-body')) {
     document.getElementById('saveClientChangesBtn').addEventListener('click', async () => {
         const data = {
             action: 'updateClient', token, clientId: currentDetailClientId,
-            branch: document.getElementById('detailBranch').value, 
-            specialist: document.getElementById('detailSpecialist').value,
-            newNote: document.getElementById('newNoteText').value, 
-            changedBy: currentUser
+            branch: document.getElementById('detailBranch').value, specialist: document.getElementById('detailSpecialist').value,
+            newNote: document.getElementById('newNoteText').value, changedBy: currentUser
         };
         try {
             const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(data) });
             const result = await res.json();
-            if (result.success) { 
-                showToast(result.data.message, 'success'); 
-                document.getElementById('newNoteText').value = ''; 
-                await fetchHistory(currentDetailClientId); 
-                fetchClients(currentPage, searchQuery); 
-                fetchNotifs(); 
-            } else { showToast(result.error, 'error'); }
+            if (result.success) { showToast(result.data.message, 'success'); document.getElementById('newNoteText').value = ''; await fetchHistory(currentDetailClientId); fetchClients(currentPage, searchQuery); fetchNotifs(); } 
+            else { showToast(result.error, 'error'); }
         } catch (err) { showToast('فشل الاتصال', 'error'); }
     });
 
-    // ====== منطق التقارير ======
     const reportModal = document.getElementById('reportModal');
     document.getElementById('reportBtn').addEventListener('click', () => reportModal.classList.add('active'));
     document.getElementById('closeReportModal').addEventListener('click', () => reportModal.classList.remove('active'));
@@ -259,7 +246,6 @@ if (document.querySelector('.dashboard-body')) {
         finally { btnText.style.display = 'inline'; loader.style.display = 'none'; btn.disabled = false; }
     });
 
-    // ====== منطق التنبيهات ======
     async function fetchNotifs() {
         try {
             const res = await fetch(`${API_URL}?action=getNotifs&token=${token}&user=${currentUser}`);
@@ -277,10 +263,7 @@ if (document.querySelector('.dashboard-body')) {
                 } else {
                     data.data.forEach(n => {
                         const date = new Date(n.date).toLocaleString('ar-EG');
-                        list.innerHTML += `<div class="notif-item ${!n.isRead ? 'unread' : ''}">
-                            <p style="margin-bottom:5px;">${n.message}</p>
-                            <small style="font-size: 11px; opacity: 0.7;">${date}</small>
-                        </div>`;
+                        list.innerHTML += `<div class="notif-item ${!n.isRead ? 'unread' : ''}"><p style="margin-bottom:5px;">${n.message}</p><small style="font-size: 11px; opacity: 0.7;">${date}</small></div>`;
                     });
                 }
             }
@@ -299,7 +282,6 @@ if (document.querySelector('.dashboard-body')) {
         } catch (e) { console.error(e); }
     };
 
-    // ====== منطق الشات والمنشن ======
     const chatModal = document.getElementById('chatModal');
     document.getElementById('chatBtn').addEventListener('click', async () => {
         chatModal.classList.add('active');
@@ -308,12 +290,12 @@ if (document.querySelector('.dashboard-body')) {
             const data = await res.json();
             const select = document.getElementById('chatTarget');
             select.innerHTML = '<option value="General">شات عام (للجميع)</option>';
-            allUsersForMention = []; // مسح القائمة
+            allUsersForMention = [];
             if (data.success) {
                 data.data.forEach(u => {
                     if (u.Username !== currentUser) {
                         select.innerHTML += `<option value="${u.Username}">${u.Username} (${u.JobTitle || 'موظف'})</option>`;
-                        allUsersForMention.push(u); // تخزين المستخدمين للمنشن
+                        allUsersForMention.push(u);
                     }
                 });
             }
@@ -335,12 +317,8 @@ if (document.querySelector('.dashboard-body')) {
                 data.data.forEach(msg => {
                     const isMe = msg.sender === currentUser;
                     const time = new Date(msg.time).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
-                    // تلوين المنشن داخل الرسالة
                     let msgText = msg.message.replace(/@(\w+)/g, '<span style="color:#ff9a44; font-weight:bold;">@$1</span>');
-                    box.innerHTML += `<div class="chat-msg ${isMe ? 'me' : 'other'}">
-                        <div style="font-size: 11px; opacity: 0.8; margin-bottom: 4px;">${isMe ? 'أنت' : msg.sender} - ${time}</div>
-                        ${msgText}
-                    </div>`;
+                    box.innerHTML += `<div class="chat-msg ${isMe ? 'me' : 'other'}"><div style="font-size: 11px; opacity: 0.8; margin-bottom: 4px;">${isMe ? 'أنت' : msg.sender} - ${time}</div>${msgText}</div>`;
                 });
                 box.scrollTop = box.scrollHeight;
             }
@@ -353,7 +331,6 @@ if (document.querySelector('.dashboard-body')) {
         chatPolling = setInterval(fetchChat, 3000);
     }
 
-    // منطق المنشن @
     const chatInput = document.getElementById('chatInput');
     const mentionDropdown = document.getElementById('mentionDropdown');
     let mentionActive = false;
@@ -361,7 +338,6 @@ if (document.querySelector('.dashboard-body')) {
     chatInput.addEventListener('input', (e) => {
         const val = e.target.value;
         const lastChar = val[val.length - 1];
-        
         if (lastChar === '@' && !mentionActive) {
             mentionActive = true;
             mentionDropdown.innerHTML = '';
@@ -395,15 +371,15 @@ if (document.querySelector('.dashboard-body')) {
             input.value = '';
             mentionDropdown.style.display = 'none';
             fetchChat();
-            fetchNotifs(); // تحديث التنبيهات لأنك ممكن تكون عملت منشن
+            fetchNotifs();
         } catch (err) { showToast('فشل إرسال الرسالة', 'error'); }
     });
 
-    // ====== منطق لوحة الأدمن ======
+    // ====== منطق لوحة الأدمن المطورة ======
     const adminBtn = document.getElementById('adminBtn');
     const adminModal = document.getElementById('adminModal');
     if (sessionStorage.getItem('userRole') === 'Admin') { adminBtn.style.display = 'flex'; }
-    adminBtn.addEventListener('click', () => { adminModal.classList.add('active'); loadUsers(); });
+    adminBtn.addEventListener('click', () => { adminModal.classList.add('active'); loadUsersForAdmin(); });
     document.getElementById('closeAdminModal').addEventListener('click', () => adminModal.classList.remove('active'));
     document.getElementById('editSettingType').addEventListener('change', populateEditDropdown);
 
@@ -416,60 +392,86 @@ if (document.querySelector('.dashboard-body')) {
         });
     });
 
-    async function loadUsers() {
+    // جلب المستخدمين لوضعهم في قائمة التعديل المنسدلة
+    async function loadUsersForAdmin() {
         try {
             const res = await fetch(`${API_URL}?action=getUsers&token=${token}`);
             const data = await res.json();
-            const tbody = document.getElementById('usersTableBody');
-            tbody.innerHTML = '';
+            const select = document.getElementById('editUserSelect');
+            select.innerHTML = '<option value="">-- اختر مستخدم من القائمة --</option>';
+            allUsersForEdit = [];
             if (data.success) {
                 data.data.forEach(u => {
-                    tbody.innerHTML += `<tr>
-                        <td>${u.Username}</td><td>${u.JobTitle || '-'}</td><td>${u.Role}</td>
-                        <td><button class="btn-primary btn-edit-user" data-userid="${u.ID}" style="padding:3px 8px; font-size:11px; background: #6a11cb;">تعديل</button></td>
-                    </tr>`;
-                });
-                document.querySelectorAll('.btn-edit-user').forEach(btn => {
-                    btn.addEventListener('click', (e) => editUser(e.target.getAttribute('data-userid'), data.data));
+                    select.innerHTML += `<option value="${u.ID}">${u.Username} (${u.JobTitle || 'موظف'})</option>`;
+                    allUsersForEdit.push(u);
                 });
             }
         } catch (err) { showToast('فشل تحميل المستخدمين', 'error'); }
     }
 
-    function editUser(userId, usersList) {
-        const user = usersList.find(u => u.ID === userId);
+    // عند اختيار مستخدم من القائمة المنسدلة، املأ الحقول ببياناته
+    document.getElementById('editUserSelect').addEventListener('change', function() {
+        const userId = this.value;
+        const user = allUsersForEdit.find(u => u.ID === userId);
         if (user) {
             document.getElementById('editUserId').value = user.ID;
-            document.getElementById('newUsername').value = user.Username;
-            document.getElementById('newPassword').value = '';
-            document.getElementById('newJobTitle').value = user.JobTitle;
-            document.getElementById('newEmail').value = user.Email;
-            document.getElementById('newWhatsApp').value = user.WhatsApp;
-            document.getElementById('newProfilePic').value = user.ProfilePic;
-            document.getElementById('newRole').value = user.Role;
-            document.getElementById('newUserBranch').value = user.Branch;
+            document.getElementById('editUsername').value = user.Username; // (readonly) لا يمكن تغييره
+            document.getElementById('editPassword').value = ''; // كلمة المرور لا تظهر للأمان
+            document.getElementById('editJobTitle').value = user.JobTitle || '';
+            document.getElementById('editEmail').value = user.Email || '';
+            document.getElementById('editWhatsApp').value = user.WhatsApp || '';
+            document.getElementById('editProfilePic').value = user.ProfilePic || '';
+            document.getElementById('editRole').value = user.Role;
+            document.getElementById('editUserBranch').value = user.Branch;
+        } else {
+            // مسح الحقول إذا لم يتم الاختيار
+            document.getElementById('editUserForm').reset();
         }
-    }
+    });
 
-    document.getElementById('userManagementForm').addEventListener('submit', async function(e) {
+    // إضافة مستخدم جديد
+    document.getElementById('addUserForm').addEventListener('submit', async function(e) {
         e.preventDefault();
-        const userId = document.getElementById('editUserId').value;
         const data = {
-            action: userId ? 'updateUser' : 'addUser', token,
-            userId: userId,
-            username: document.getElementById('newUsername').value,
-            password: document.getElementById('newPassword').value,
-            jobTitle: document.getElementById('newJobTitle').value,
-            email: document.getElementById('newEmail').value,
-            whatsapp: document.getElementById('newWhatsApp').value,
-            profilePic: document.getElementById('newProfilePic').value,
-            role: document.getElementById('newRole').value,
-            branch: document.getElementById('newUserBranch').value || 'All'
+            action: 'addUser', token,
+            username: document.getElementById('addUsername').value,
+            password: document.getElementById('addPassword').value,
+            jobTitle: document.getElementById('addJobTitle').value,
+            email: document.getElementById('addEmail').value,
+            whatsapp: document.getElementById('addWhatsApp').value,
+            profilePic: document.getElementById('addProfilePic').value,
+            role: document.getElementById('addRole').value,
+            branch: document.getElementById('addUserBranch').value || 'All'
         };
         try {
             const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(data) });
             const result = await res.json();
-            if (result.success) { showToast(result.data.message, 'success'); document.getElementById('userManagementForm').reset(); loadUsers(); } 
+            if (result.success) { showToast(result.data.message, 'success'); document.getElementById('addUserForm').reset(); loadUsersForAdmin(); } 
+            else { showToast(result.error, 'error'); }
+        } catch (err) { showToast('فشل الاتصال', 'error'); }
+    });
+
+    // تعديل مستخدم حالي
+    document.getElementById('editUserForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const userId = document.getElementById('editUserId').value;
+        if (!userId) return showToast('يرجى اختيار مستخدم من القائمة أولاً', 'warning');
+        
+        const data = {
+            action: 'updateUser', token, userId,
+            username: document.getElementById('editUsername').value, // يرسل كما هو
+            newPassword: document.getElementById('editPassword').value,
+            jobTitle: document.getElementById('editJobTitle').value,
+            email: document.getElementById('editEmail').value,
+            whatsapp: document.getElementById('editWhatsApp').value,
+            profilePic: document.getElementById('editProfilePic').value,
+            role: document.getElementById('editRole').value,
+            branch: document.getElementById('editUserBranch').value || 'All'
+        };
+        try {
+            const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(data) });
+            const result = await res.json();
+            if (result.success) { showToast(result.data.message, 'success'); document.getElementById('editUserForm').reset(); loadUsersForAdmin(); } 
             else { showToast(result.error, 'error'); }
         } catch (err) { showToast('فشل الاتصال', 'error'); }
     });
