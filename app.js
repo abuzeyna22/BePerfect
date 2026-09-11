@@ -1,4 +1,4 @@
-const API_URL = 'https://script.google.com/macros/s/AKfycbxxQofE4nyBywqJB06LhmlBssjtjqxdpIbmIYVcHeb5XaxURYt5Kb82-HXCsiH1em6I/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbzQUS8J71BArPfFRFNT6qqmK3Ft1DeJs-rhGDLFtsDpmTRRR2LQFSrBVt3mmYziBeM9/exec';
 
 function showToast(message, type = 'error') {
     const container = document.getElementById('toast-container');
