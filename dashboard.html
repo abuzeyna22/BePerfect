@@ -7,6 +7,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <style>
+        .notif-container { position: relative; }
+        .notif-badge { position: absolute; top: -5px; left: -5px; background: #ff3b3b; color: white; border-radius: 50%; width: 20px; height: 20px; display: none; justify-content: center; align-items: center; font-size: 11px; font-weight: bold; }
+        .notif-dropdown { position: absolute; top: 50px; left: 0; width: 300px; background: rgba(40, 40, 70, 0.9); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.2); border-radius: 10px; z-index: 1000; display: none; max-height: 400px; overflow-y: auto; }
+        .notif-item { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 14px; }
+        .notif-item.unread { background: rgba(95, 211, 110, 0.1); }
+        .btn-whatsapp { background: linear-gradient(to right, #25D366, #128C7E); color: white; padding: 10px 15px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block; text-align: center; margin-top: 10px; }
+    </style>
 </head>
 <body class="dashboard-body">
 
@@ -19,6 +27,18 @@
         </div>
         <div class="topbar-left">
             <button id="reportBtn" class="btn-primary" style="background: linear-gradient(to right, #6a11cb, #2575fc);">📊 تقارير</button>
+            
+            <div class="notif-container">
+                <button class="btn-primary" style="background: transparent; border: 1px solid rgba(255,255,255,0.2); font-size: 20px; padding: 5px 12px;" onclick="toggleNotifs()">🔔</button>
+                <span id="notifBadge" class="notif-badge">0</span>
+                <div id="notifDropdown" class="notif-dropdown">
+                    <div style="padding: 10px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                        <button onclick="markNotifsRead()" style="background:transparent; border:none; color:#ff9a44; cursor:pointer; font-size:12px;">تعليم الكل كمقروء</button>
+                    </div>
+                    <div id="notifList"></div>
+                </div>
+            </div>
+
             <button id="adminBtn" class="btn-primary" style="display:none; background: linear-gradient(to right, #11998e, #38ef7d);">⚙️ الإعدادات</button>
             <div class="user-info">
                 <span id="displayUsername">مستخدم</span>
@@ -40,21 +60,13 @@
                 <h2>إدارة العملاء</h2>
                 <button id="addClientBtn" class="btn-primary">+ إضافة عميل جديد</button>
             </div>
-            <div class="search-bar">
-                <input type="text" id="searchInput" placeholder="ابحث بالاسم أو رقم الهاتف...">
-            </div>
+            <div class="search-bar"><input type="text" id="searchInput" placeholder="ابحث بالاسم أو رقم الهاتف..."></div>
             <div class="table-container">
                 <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>كود العميل</th><th>الاسم</th><th>الهاتف</th><th>الفرع</th><th>التخصص</th><th>الحالة</th><th>إجراءات</th>
-                        </tr>
-                    </thead>
+                    <thead><tr><th>كود العميل</th><th>الاسم</th><th>الهاتف</th><th>الفرع</th><th>التخصص</th><th>الحالة</th><th>إجراءات</th></tr></thead>
                     <tbody id="clientsTableBody"></tbody>
                 </table>
-                <div id="emptyState" class="empty-state" style="display: none;">
-                    <p>لا يوجد عملاء لعرضهم حالياً.</p>
-                </div>
+                <div id="emptyState" class="empty-state" style="display: none;"><p>لا يوجد عملاء لعرضهم حالياً.</p></div>
             </div>
             <div id="pagination" class="pagination"></div>
         </div>
@@ -63,10 +75,7 @@
     <!-- نافذة إضافة عميل -->
     <div id="clientModal" class="modal-overlay">
         <div class="glass-card modal-box">
-            <div class="modal-header">
-                <h3>تسجيل عميل جديد</h3>
-                <button class="close-modal" id="closeModalBtn">&times;</button>
-            </div>
+            <div class="modal-header"><h3>تسجيل عميل جديد</h3><button class="close-modal" id="closeModalBtn">&times;</button></div>
             <form id="addClientForm" class="modal-form">
                 <div class="form-grid">
                     <div class="input-group"><label>الاسم الكامل *</label><input type="text" id="fullName" required></div>
@@ -77,10 +86,7 @@
                     <div class="input-group"><label>مصدر العميل</label><select id="source"></select></div>
                 </div>
                 <div class="input-group full-width"><label>ملاحظات أولية</label><textarea id="notes" rows="3"></textarea></div>
-                <button type="submit" id="submitClientBtn" class="btn-primary">
-                    <span class="btn-text">حفظ العميل</span>
-                    <div class="loader" id="clientLoader"></div>
-                </button>
+                <button type="submit" id="submitClientBtn" class="btn-primary"><span class="btn-text">حفظ العميل</span><div class="loader" id="clientLoader"></div></button>
             </form>
         </div>
     </div>
@@ -88,15 +94,13 @@
     <!-- نافذة تفاصيل وتعديل العميل -->
     <div id="clientDetailsModal" class="modal-overlay">
         <div class="glass-card modal-box">
-            <div class="modal-header">
-                <h3>ملف العميل: <span id="detailClientName" style="color:#ff9a44;"></span></h3>
-                <button class="close-modal" id="closeDetailsModal">&times;</button>
-            </div>
+            <div class="modal-header"><h3>ملف العميل: <span id="detailClientName" style="color:#ff9a44;"></span></h3><button class="close-modal" id="closeDetailsModal">&times;</button></div>
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
                 <div class="input-group"><label>كود العميل</label><input type="text" id="detailClientID" readonly></div>
                 <div class="input-group"><label>رقم الهاتف</label><input type="text" id="detailPhone" readonly></div>
             </div>
-            <h4 style="margin-bottom:15px; color:#ff9a44;">تعديل البيانات</h4>
+            <a id="whatsappBtn" href="#" target="_blank" class="btn-whatsapp" style="width: 100%;">إرسال تنبيه واتساب للعميل</a>
+            <h4 style="margin: 20px 0 15px; color:#ff9a44;">تعديل البيانات</h4>
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                 <div class="input-group"><label>الفرع الحالي</label><select id="detailBranch"></select></div>
                 <div class="input-group"><label>الأخصائي المسؤول</label><select id="detailSpecialist"><option value="">لا يوجد</option></select></div>
@@ -104,10 +108,7 @@
             <button id="saveClientChangesBtn" class="btn-primary" style="margin-bottom: 20px; margin-top:10px;">حفظ التعديلات</button>
             <h4 style="margin-bottom:15px; color:#ff9a44;">سجل التغييرات (History)</h4>
             <div class="table-container" style="max-height: 200px; overflow-y: auto;">
-                <table class="data-table">
-                    <thead><tr><th>الحقل</th><th>القديمة</th><th>الجديدة</th><th>بواسطة</th><th>التاريخ</th></tr></thead>
-                    <tbody id="historyTableBody"></tbody>
-                </table>
+                <table class="data-table"><thead><tr><th>الحقل</th><th>القديمة</th><th>الجديدة</th><th>بواسطة</th><th>التاريخ</th></tr></thead><tbody id="historyTableBody"></tbody></table>
             </div>
         </div>
     </div>
@@ -115,34 +116,14 @@
     <!-- نافذة التقارير -->
     <div id="reportModal" class="modal-overlay">
         <div class="glass-card modal-box">
-            <div class="modal-header">
-                <h3>استخراج تقرير شهري</h3>
-                <button class="close-modal" id="closeReportModal">&times;</button>
-            </div>
+            <div class="modal-header"><h3>استخراج تقرير شهري</h3><button class="close-modal" id="closeReportModal">&times;</button></div>
             <form id="reportForm" class="modal-form">
                 <div class="form-grid">
-                    <div class="input-group">
-                        <label>اختر الشهر *</label>
-                        <select id="reportMonth" required>
-                            <option value="1">يناير</option><option value="2">فبراير</option><option value="3">مارس</option>
-                            <option value="4">أبريل</option><option value="5">مايو</option><option value="6">يونيو</option>
-                            <option value="7">يوليو</option><option value="8">أغسطس</option><option value="9">سبتمبر</option>
-                            <option value="10">أكتوبر</option><option value="11">نوفمبر</option><option value="12">ديسمبر</option>
-                        </select>
-                    </div>
-                    <div class="input-group">
-                        <label>اختر السنة *</label>
-                        <input type="number" id="reportYear" value="2024" required>
-                    </div>
-                    <div class="input-group full-width">
-                        <label>اختر الفرع *</label>
-                        <select id="reportBranch"><option value="All">كل الفروع</option></select>
-                    </div>
+                    <div class="input-group"><label>اختر الشهر *</label><select id="reportMonth" required><option value="1">يناير</option><option value="2">فبراير</option><option value="3">مارس</option><option value="4">أبريل</option><option value="5">مايو</option><option value="6">يونيو</option><option value="7">يوليو</option><option value="8">أغسطس</option><option value="9">سبتمبر</option><option value="10">أكتوبر</option><option value="11">نوفمبر</option><option value="12">ديسمبر</option></select></div>
+                    <div class="input-group"><label>اختر السنة *</label><input type="number" id="reportYear" value="2024" required></div>
+                    <div class="input-group full-width"><label>اختر الفرع *</label><select id="reportBranch"><option value="All">كل الفروع</option></select></div>
                 </div>
-                <button type="submit" id="generateReportBtn" class="btn-primary" style="background: linear-gradient(to right, #6a11cb, #2575fc);">
-                    <span class="btn-text">استخراج Excel/CSV</span>
-                    <div class="loader" id="reportLoader"></div>
-                </button>
+                <button type="submit" id="generateReportBtn" class="btn-primary" style="background: linear-gradient(to right, #6a11cb, #2575fc);"><span class="btn-text">استخراج Excel/CSV</span><div class="loader" id="reportLoader"></div></button>
             </form>
         </div>
     </div>
@@ -150,11 +131,7 @@
     <!-- نافذة إعدادات الأدمن -->
     <div id="adminModal" class="modal-overlay">
         <div class="glass-card modal-box" style="max-width: 800px;">
-            <div class="modal-header">
-                <h3>إعدادات النظام (للأدمن فقط)</h3>
-                <button class="close-modal" id="closeAdminModal">&times;</button>
-            </div>
-            
+            <div class="modal-header"><h3>إعدادات النظام (للأدمن فقط)</h3><button class="close-modal" id="closeAdminModal">&times;</button></div>
             <h4 style="margin-bottom:15px; color:#ff9a44;">1. إضافة / تعديل مستخدم</h4>
             <form id="userManagementForm" class="modal-form">
                 <div class="form-grid">
@@ -163,11 +140,9 @@
                     <div class="input-group"><label>كلمة المرور (اتركها فارغة عند التعديل إذا لا تريد تغييرها)</label><input type="text" id="newPassword" placeholder="********"></div>
                     <div class="input-group"><label>الوظيفة (Job Title)</label><input type="text" id="newJobTitle" placeholder="مثال: سكرتير فرع سموحة"></div>
                     <div class="input-group"><label>البريد الإلكتروني</label><input type="email" id="newEmail" placeholder="user@beperfect.com"></div>
-                    <div class="input-group"><label>رابط الصورة (Profile Pic URL)</label><input type="text" id="newProfilePic" placeholder="https://..."></div>
-                    <div class="input-group">
-                        <label>الصلاحية *</label>
-                        <select id="newRole"><option value="Secretary">سكرتير</option><option value="Moderator">مودريتور</option><option value="Admin">أدمن</option></select>
-                    </div>
+                    <div class="input-group"><label>رقم واتساب (للتنبيهات)</label><input type="text" id="newWhatsApp" placeholder="2010xxxxxxx"></div>
+                    <div class="input-group"><label>رابط الصورة</label><input type="text" id="newProfilePic" placeholder="https://..."></div>
+                    <div class="input-group"><label>الصلاحية *</label><select id="newRole"><option value="Secretary">سكرتير</option><option value="Moderator">مودريتور</option><option value="Admin">أدمن</option></select></div>
                     <div class="input-group"><label>الفرع</label><input type="text" id="newUserBranch" placeholder="All لكل الفروع"></div>
                 </div>
                 <div style="display:flex; gap: 10px;">
@@ -176,44 +151,27 @@
                 </div>
             </form>
             <div class="table-container" style="margin-top: 15px; max-height: 150px; overflow-y: auto;">
-                <table class="data-table">
-                    <thead><tr><th>الاسم</th><th>الوظيفة</th><th>الصلاحية</th><th></th></tr></thead>
-                    <tbody id="usersTableBody"></tbody>
-                </table>
+                <table class="data-table"><thead><tr><th>الاسم</th><th>الوظيفة</th><th>الصلاحية</th><th></th></tr></thead><tbody id="usersTableBody"></tbody></table>
             </div>
-
             <hr style="margin: 20px 0; border-color: rgba(255,255,255,0.2);">
-
             <h4 style="margin-bottom:15px; color:#ff9a44;">2. إضافة (فرع / تخصص / أخصائي / مصدر)</h4>
             <form id="addSettingForm" class="modal-form">
                 <div class="form-grid">
-                    <div class="input-group">
-                        <label>النوع *</label>
-                        <select id="settingType">
-                            <option value="Branch">فرع</option><option value="Specialty">تخصص</option>
-                            <option value="Specialist">أخصائي</option><option value="Source">مصدر</option>
-                        </select>
-                    </div>
+                    <div class="input-group"><label>النوع *</label><select id="settingType"><option value="Branch">فرع</option><option value="Specialty">تخصص</option><option value="Specialist">أخصائي</option><option value="Source">مصدر</option></select></div>
                     <div class="input-group"><label>الاسم *</label><input type="text" id="settingValue" required placeholder="اكتب الاسم الجديد"></div>
                 </div>
                 <button type="submit" class="btn-primary">حفظ الإعداد</button>
             </form>
-
             <hr style="margin: 20px 0; border-color: rgba(255,255,255,0.2);"/>
-
             <h4 style="margin-bottom:15px; color:#ff9a44;">3. تعديل (فرع / تخصص / أخصائي / مصدر)</h4>
             <form id="editSettingForm" class="modal-form">
                 <div class="form-grid">
-                    <div class="input-group">
-                        <label>النوع *</label>
-                        <select id="editSettingType"><option value="Branch">فرع</option><option value="Specialty">تخصص</option><option value="Specialist">أخصائي</option><option value="Source">مصدر</option></select>
-                    </div>
+                    <div class="input-group"><label>النوع *</label><select id="editSettingType"><option value="Branch">فرع</option><option value="Specialty">تخصص</option><option value="Specialist">أخصائي</option><option value="Source">مصدر</option></select></div>
                     <div class="input-group"><label>اختر العنصر الحالي *</label><select id="editOldValue"></select></div>
                     <div class="input-group full-width"><label>الاسم الجديد *</label><input type="text" id="editNewValue" required placeholder="اكتب الاسم الجديد هنا"></div>
                 </div>
                 <button type="submit" class="btn-primary">تعديل الاسم</button>
             </form>
-
             <hr style="margin: 20px 0; border-color: rgba(255,255,255,0.2);"/>
             <h4 style="margin-bottom:15px; color:#ff9a44;">4. استيراد بيانات عملاء قدامى (CSV)</h4>
             <form id="importClientsForm" class="modal-form">
