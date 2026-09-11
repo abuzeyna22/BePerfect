@@ -1,4 +1,4 @@
-const API_URL = 'https://script.google.com/macros/s/AKfycbxECxm06puNLLt-Tou7mDv0uLCZXl0wSgFN6ZB4ei2mZwmXu-5txLudtuPym8bxDbv5/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbzqB5UYC2iFUvQlEsAj0KdseSQAtOFhkHIwmNkZ2u23ylq20Ws0zNE-wsQb2zEyhRDA/exec';
 
 function showToast(message, type = 'error') {
     const container = document.getElementById('toast-container');
@@ -246,6 +246,7 @@ if (document.querySelector('.dashboard-body')) {
         finally { btnText.style.display = 'inline'; loader.style.display = 'none'; btn.disabled = false; }
     });
 
+    // ====== منطق التنبيهات الذكي ======
     async function fetchNotifs() {
         try {
             const res = await fetch(`${API_URL}?action=getNotifs&token=${token}&user=${currentUser}`);
@@ -263,7 +264,32 @@ if (document.querySelector('.dashboard-body')) {
                 } else {
                     data.data.forEach(n => {
                         const date = new Date(n.date).toLocaleString('ar-EG');
-                        list.innerHTML += `<div class="notif-item ${!n.isRead ? 'unread' : ''}"><p style="margin-bottom:5px;">${n.message}</p><small style="font-size: 11px; opacity: 0.7;">${date}</small></div>`;
+                        list.innerHTML += `<div class="notif-item ${!n.isRead ? 'unread' : ''}" data-action-type="${n.actionType}" data-action-id="${n.actionId}" style="cursor: pointer;">
+                            <p style="margin-bottom:5px;">${n.message}</p>
+                            <small style="font-size: 11px; opacity: 0.7;">${date}</small>
+                        </div>`;
+                    });
+                    // إضافة حدث النقر للتنقل الذكي
+                    document.querySelectorAll('#notifList .notif-item').forEach(item => {
+                        item.addEventListener('click', () => {
+                            const actionType = item.getAttribute('data-action-type');
+                            const actionId = item.getAttribute('data-action-id');
+                            document.getElementById('notifDropdown').style.display = 'none';
+                            
+                            if (actionType === 'client_details' && actionId) {
+                                openClientDetails(actionId); // فتح كارت العميل
+                            } else if (actionType === 'chat' && actionId) {
+                                // فتح الشات مع المستخدم المرسل
+                                document.getElementById('chatBtn').click();
+                                setTimeout(() => {
+                                    const select = document.getElementById('chatTarget');
+                                    select.value = actionId;
+                                    // إجبار القائمة على التحديث
+                                    const event = new Event('change');
+                                    select.dispatchEvent(event);
+                                }, 1500); // تأخير ثانية ونصف ليتم جلب المستخدمين أولاً
+                            }
+                        });
                     });
                 }
             }
@@ -272,13 +298,18 @@ if (document.querySelector('.dashboard-body')) {
 
     window.toggleNotifs = function() {
         const dropdown = document.getElementById('notifDropdown');
-        dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+        if (dropdown.style.display === 'block') {
+            dropdown.style.display = 'none';
+        } else {
+            dropdown.style.display = 'block';
+            window.markNotifsRead(); // مسح الرقم الأحمر فوراً عند الفتح
+        }
     };
 
     window.markNotifsRead = async function() {
         try {
             await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'markNotifRead', token, user: currentUser }) });
-            fetchNotifs();
+            document.getElementById('notifBadge').style.display = 'none'; // إخفاء الرقم فوراً
         } catch (e) { console.error(e); }
     };
 
@@ -375,7 +406,7 @@ if (document.querySelector('.dashboard-body')) {
         } catch (err) { showToast('فشل إرسال الرسالة', 'error'); }
     });
 
-    // ====== منطق لوحة الأدمن المطورة ======
+    // ====== منطق لوحة الأدمن ======
     const adminBtn = document.getElementById('adminBtn');
     const adminModal = document.getElementById('adminModal');
     if (sessionStorage.getItem('userRole') === 'Admin') { adminBtn.style.display = 'flex'; }
@@ -392,7 +423,6 @@ if (document.querySelector('.dashboard-body')) {
         });
     });
 
-    // جلب المستخدمين لوضعهم في قائمة التعديل المنسدلة
     async function loadUsersForAdmin() {
         try {
             const res = await fetch(`${API_URL}?action=getUsers&token=${token}`);
@@ -409,14 +439,13 @@ if (document.querySelector('.dashboard-body')) {
         } catch (err) { showToast('فشل تحميل المستخدمين', 'error'); }
     }
 
-    // عند اختيار مستخدم من القائمة المنسدلة، املأ الحقول ببياناته
     document.getElementById('editUserSelect').addEventListener('change', function() {
         const userId = this.value;
         const user = allUsersForEdit.find(u => u.ID === userId);
         if (user) {
             document.getElementById('editUserId').value = user.ID;
-            document.getElementById('editUsername').value = user.Username; // (readonly) لا يمكن تغييره
-            document.getElementById('editPassword').value = ''; // كلمة المرور لا تظهر للأمان
+            document.getElementById('editUsername').value = user.Username; 
+            document.getElementById('editPassword').value = ''; 
             document.getElementById('editJobTitle').value = user.JobTitle || '';
             document.getElementById('editEmail').value = user.Email || '';
             document.getElementById('editWhatsApp').value = user.WhatsApp || '';
@@ -424,12 +453,10 @@ if (document.querySelector('.dashboard-body')) {
             document.getElementById('editRole').value = user.Role;
             document.getElementById('editUserBranch').value = user.Branch;
         } else {
-            // مسح الحقول إذا لم يتم الاختيار
             document.getElementById('editUserForm').reset();
         }
     });
 
-    // إضافة مستخدم جديد
     document.getElementById('addUserForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         const data = {
@@ -451,7 +478,6 @@ if (document.querySelector('.dashboard-body')) {
         } catch (err) { showToast('فشل الاتصال', 'error'); }
     });
 
-    // تعديل مستخدم حالي
     document.getElementById('editUserForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         const userId = document.getElementById('editUserId').value;
@@ -459,7 +485,7 @@ if (document.querySelector('.dashboard-body')) {
         
         const data = {
             action: 'updateUser', token, userId,
-            username: document.getElementById('editUsername').value, // يرسل كما هو
+            username: document.getElementById('editUsername').value,
             newPassword: document.getElementById('editPassword').value,
             jobTitle: document.getElementById('editJobTitle').value,
             email: document.getElementById('editEmail').value,
