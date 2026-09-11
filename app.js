@@ -1,4 +1,4 @@
-const API_URL = 'https://script.google.com/macros/s/AKfycbyzHy_lUKI4pWjDO4dba8Vb_cRpLqTuNFoNmuPNagCGSv9w9qDnX4AytppqC69vDb5o/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbwfDdDLqRq0EWaWQcpFHYBF-DvWe8L1OkQPJkFUnocwWse6Drwohv4bMNRnN9gdNICb/exec';
 
 function showToast(message, type = 'error') {
     const container = document.getElementById('toast-container');
@@ -58,11 +58,13 @@ if (document.getElementById('loginForm')) {
 
 if (document.querySelector('.dashboard-body')) {
     const token = checkAuth();
-    document.getElementById('displayUsername').innerText = sessionStorage.getItem('username') || 'مستخدم';
+    const currentUser = sessionStorage.getItem('username');
+    document.getElementById('displayUsername').innerText = currentUser || 'مستخدم';
     document.getElementById('displayRole').innerText = sessionStorage.getItem('userRole') || 'دور';
 
     let currentPage = 1, searchQuery = '', currentDetailClientId = '';
     let globalSettings = { branches: [], specialties: [], specialists: [], sources: [] };
+    let chatPolling;
 
     async function fetchSettings() {
         try {
@@ -151,7 +153,7 @@ if (document.querySelector('.dashboard-body')) {
             fullName: document.getElementById('fullName').value, phone: document.getElementById('phone').value,
             age: document.getElementById('age').value, preferredBranch: document.getElementById('preferredBranch').value,
             requiredSpecialty: document.getElementById('requiredSpecialty').value, source: document.getElementById('source').value,
-            notes: document.getElementById('notes').value, createdBy: sessionStorage.getItem('username')
+            notes: document.getElementById('notes').value, createdBy: currentUser
         };
         btnText.style.display = 'none'; loader.style.display = 'block'; submitBtn.disabled = true;
         try {
@@ -204,7 +206,7 @@ if (document.querySelector('.dashboard-body')) {
         const data = {
             action: 'updateClient', token, clientId: currentDetailClientId,
             branch: document.getElementById('detailBranch').value, specialist: document.getElementById('detailSpecialist').value,
-            changedBy: sessionStorage.getItem('username')
+            changedBy: currentUser
         };
         try {
             const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(data) });
@@ -241,11 +243,10 @@ if (document.querySelector('.dashboard-body')) {
         finally { btnText.style.display = 'inline'; loader.style.display = 'none'; btn.disabled = false; }
     });
 
-    // ====== منطق التنبيهات (Notifications) ======
+    // ====== منطق التنبيهات (تربط بالمستخدم) ======
     async function fetchNotifs() {
         try {
-            const role = sessionStorage.getItem('userRole');
-            const res = await fetch(`${API_URL}?action=getNotifs&token=${token}&role=${role}`);
+            const res = await fetch(`${API_URL}?action=getNotifs&token=${token}&user=${currentUser}`);
             const data = await res.json();
             if (data.success) {
                 const unread = data.data.filter(n => !n.isRead).length;
@@ -277,13 +278,77 @@ if (document.querySelector('.dashboard-body')) {
 
     window.markNotifsRead = async function() {
         try {
-            const role = sessionStorage.getItem('userRole');
-            await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'markNotifRead', token, role }) });
+            await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'markNotifRead', token, user: currentUser }) });
             fetchNotifs();
         } catch (e) { console.error(e); }
     };
 
-    // ====== منطق لوحة الأدمن (بالتبويبات) ======
+    // ====== منطق الشات الداخلي ======
+    const chatModal = document.getElementById('chatModal');
+    document.getElementById('chatBtn').addEventListener('click', async () => {
+        chatModal.classList.add('active');
+        // جلب قائمة المستخدمين للشات الخاص
+        try {
+            const res = await fetch(`${API_URL}?action=getUsers&token=${token}`);
+            const data = await res.json();
+            const select = document.getElementById('chatTarget');
+            select.innerHTML = '<option value="General">شات عام (للجميع)</option>';
+            if (data.success) {
+                data.data.forEach(u => {
+                    if (u.username !== currentUser) {
+                        select.innerHTML += `<option value="${u.username}">${u.username} (${u.jobTitle || 'موظف'})</option>`;
+                    }
+                });
+            }
+        } catch (e) { console.error(e); }
+        startChatPolling();
+    });
+    document.getElementById('closeChatModal').addEventListener('click', () => { chatModal.classList.remove('active'); clearInterval(chatPolling); });
+
+    document.getElementById('chatTarget').addEventListener('change', fetchChat);
+
+    async function fetchChat() {
+        const target = document.getElementById('chatTarget').value;
+        try {
+            const res = await fetch(`${API_URL}?action=getChat&token=${token}&user=${currentUser}&target=${target}`);
+            const data = await res.json();
+            const box = document.getElementById('chatBox');
+            box.innerHTML = '';
+            if (data.success && data.data.length > 0) {
+                data.data.forEach(msg => {
+                    const isMe = msg.sender === currentUser;
+                    const time = new Date(msg.time).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+                    box.innerHTML += `<div class="chat-msg ${isMe ? 'me' : 'other'}">
+                        <div style="font-size: 11px; opacity: 0.8; margin-bottom: 4px;">${isMe ? 'أنت' : msg.sender} - ${time}</div>
+                        ${msg.message}
+                    </div>`;
+                });
+                box.scrollTop = box.scrollHeight;
+            }
+        } catch (e) { console.error('Chat Fetch Error', e); }
+    }
+
+    function startChatPolling() {
+        fetchChat();
+        clearInterval(chatPolling);
+        chatPolling = setInterval(fetchChat, 3000); // تحديث كل 3 ثواني
+    }
+
+    document.getElementById('chatForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const input = document.getElementById('chatInput');
+        const msg = input.value.trim();
+        if (!msg) return;
+        const target = document.getElementById('chatTarget').value;
+        
+        try {
+            await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'sendChat', token, sender: currentUser, receiver: target, message: msg }) });
+            input.value = '';
+            fetchChat();
+        } catch (err) { showToast('فشل إرسال الرسالة', 'error'); }
+    });
+
+    // ====== منطق لوحة الأدمن ======
     const adminBtn = document.getElementById('adminBtn');
     const adminModal = document.getElementById('adminModal');
     if (sessionStorage.getItem('userRole') === 'Admin') { adminBtn.style.display = 'flex'; }
@@ -291,7 +356,6 @@ if (document.querySelector('.dashboard-body')) {
     document.getElementById('closeAdminModal').addEventListener('click', () => adminModal.classList.remove('active'));
     document.getElementById('editSettingType').addEventListener('change', populateEditDropdown);
 
-    // منطق التبويبات
     document.querySelectorAll('.admin-tab').forEach(tab => {
         tab.addEventListener('click', () => {
             document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
@@ -409,7 +473,7 @@ if (document.querySelector('.dashboard-body')) {
             }
             const res = await fetch(API_URL, {
                 method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: 'bulkAddClients', token, branch, clients: clientsArray, createdBy: sessionStorage.getItem('username') })
+                body: JSON.stringify({ action: 'bulkAddClients', token, branch, clients: clientsArray, createdBy: currentUser })
             });
             const result = await res.json();
             if (result.success) { showToast(result.data.message, 'success'); document.getElementById('importClientsForm').reset(); fetchClients(currentPage, searchQuery); fetchNotifs(); } 
