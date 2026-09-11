@@ -1,4 +1,4 @@
-const API_URL = 'https://script.google.com/macros/s/AKfycbxy08Cfir5R6OLUN9IocfQRtNh2TJx0s3lOkVh5v9OJzlBYYmrei7LVKfCMKRYCPWDl/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbzp2dhNwI9uh28IllQNMENEFDwWGuHNUF4_MQVbTXoL7JUxuMDf_dMDdXQ0T-ZHQz0/exec';
 
 function showToast(message, type = 'error') {
     const container = document.getElementById('toast-container');
@@ -15,6 +15,28 @@ function checkAuth() {
     return token;
 }
 
+// دالة تصدير CSV (Pure JS)
+function exportToCSV(data, filename) {
+    if (data.length === 0) return showToast('لا توجد بيانات في هذا التقرير', 'warning');
+    const headers = Object.keys(data[0]);
+    const csvRows = [];
+    csvRows.push(headers.join(','));
+    data.forEach(row => {
+        const values = headers.map(header => {
+            let val = row[header] === null || row[header] === undefined ? '' : String(row[header]);
+            val = val.replace(/"/g, '""');
+            return `"${val}"`;
+        });
+        csvRows.push(values.join(','));
+    });
+    const csvString = "\uFEFF" + csvRows.join('\n'); // BOM for Arabic Excel support
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
+}
+
 if (document.getElementById('loginForm')) {
     document.getElementById('loginForm').addEventListener('submit', async function(e) {
         e.preventDefault();
@@ -23,14 +45,11 @@ if (document.getElementById('loginForm')) {
         const loginBtn = document.getElementById('loginBtn');
         const btnText = loginBtn.querySelector('.btn-text');
         const loader = document.getElementById('loginLoader');
-
         if (!username || !password) { return showToast('يرجى إدخال البيانات', 'warning'); }
         btnText.style.display = 'none'; loader.style.display = 'block'; loginBtn.disabled = true;
-
         try {
             const response = await fetch(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({ action: 'login', username, password })
             });
             const data = await response.json();
@@ -51,10 +70,8 @@ if (document.querySelector('.dashboard-body')) {
     document.getElementById('displayUsername').innerText = sessionStorage.getItem('username') || 'مستخدم';
     document.getElementById('displayRole').innerText = sessionStorage.getItem('userRole') || 'دور';
 
-    let currentPage = 1;
-    let searchQuery = '';
-    let currentDetailClientId = '';
-    let globalSettings = { branches: [], specialties: [], specialists: [] };
+    let currentPage = 1, searchQuery = '', currentDetailClientId = '';
+    let globalSettings = { branches: [], specialties: [], specialists: [], sources: [] };
 
     async function fetchSettings() {
         try {
@@ -65,34 +82,29 @@ if (document.querySelector('.dashboard-body')) {
                 populateDropdowns();
                 populateEditDropdown();
                 populateImportDropdown();
+                populateReportDropdown();
             }
         } catch (error) { console.error('Settings Error:', error); }
     }
 
     function populateDropdowns() {
-        const branchSelect = document.getElementById('preferredBranch');
-        branchSelect.innerHTML = '';
-        globalSettings.branches.forEach(b => { branchSelect.innerHTML += `<option value="${b}">${b}</option>`; });
-        const specialtySelect = document.getElementById('requiredSpecialty');
-        specialtySelect.innerHTML = '';
-        globalSettings.specialties.forEach(s => { specialtySelect.innerHTML += `<option value="${s}">${s}</option>`; });
+        document.getElementById('preferredBranch').innerHTML = globalSettings.branches.map(b => `<option value="${b}">${b}</option>`).join('');
+        document.getElementById('requiredSpecialty').innerHTML = globalSettings.specialties.map(s => `<option value="${s}">${s}</option>`).join('');
+        document.getElementById('source').innerHTML = globalSettings.sources.map(s => `<option value="${s}">${s}</option>`).join('');
     }
 
     function populateEditDropdown() {
         const type = document.getElementById('editSettingType').value;
-        const oldValSelect = document.getElementById('editOldValue');
-        oldValSelect.innerHTML = '';
-        let items = [];
-        if (type === 'Branch') items = globalSettings.branches;
-        else if (type === 'Specialty') items = globalSettings.specialties;
-        else if (type === 'Specialist') items = globalSettings.specialists;
-        items.forEach(item => { oldValSelect.innerHTML += `<option value="${item}">${item}</option>`; });
+        const items = type === 'Branch' ? globalSettings.branches : type === 'Specialty' ? globalSettings.specialties : type === 'Specialist' ? globalSettings.specialists : globalSettings.sources;
+        document.getElementById('editOldValue').innerHTML = items.map(item => `<option value="${item}">${item}</option>`).join('');
     }
 
     function populateImportDropdown() {
-        const importBranchSelect = document.getElementById('importBranch');
-        importBranchSelect.innerHTML = '';
-        globalSettings.branches.forEach(b => { importBranchSelect.innerHTML += `<option value="${b}">${b}</option>`; });
+        document.getElementById('importBranch').innerHTML = globalSettings.branches.map(b => `<option value="${b}">${b}</option>`).join('');
+    }
+
+    function populateReportDropdown() {
+        document.getElementById('reportBranch').innerHTML = '<option value="All">كل الفروع</option>' + globalSettings.branches.map(b => `<option value="${b}">${b}</option>`).join('');
     }
 
     async function fetchClients(page = 1, search = '') {
@@ -110,23 +122,17 @@ if (document.querySelector('.dashboard-body')) {
         tbody.innerHTML = '';
         if (clients.length === 0) { emptyState.style.display = 'block'; document.getElementById('pagination').innerHTML = ''; return; }
         emptyState.style.display = 'none';
-        
         clients.forEach(c => {
             const statusColor = c.Status === 'عميل محتمل' ? '#f5af19' : c.Status === 'تحت الجلسات' ? '#38ef7d' : '#fff';
             tbody.innerHTML += `
                 <tr>
                     <td><span style="background:rgba(255,255,255,0.1); padding:3px 8px; border-radius:5px; font-size:12px;">${c.ClientID}</span></td>
-                    <td>${c.FullName}</td>
-                    <td>${c.Phone}</td>
-                    <td>${c.PreferredBranch}</td>
-                    <td>${c.RequiredSpecialty}</td>
+                    <td>${c.FullName}</td><td>${c.Phone}</td><td>${c.PreferredBranch}</td><td>${c.RequiredSpecialty}</td>
                     <td><span class="status-badge" style="background:${statusColor}30; color:${statusColor};">${c.Status}</span></td>
                     <td><button class="btn-primary btn-details" data-clientid="${c.ClientID}" style="padding:5px 10px; font-size:12px;">تفاصيل</button></td>
                 </tr>
             `;
         });
-
-        // إصلاح الترقيم (Pagination)
         const totalPages = Math.ceil(total / 20);
         const paginationDiv = document.getElementById('pagination');
         paginationDiv.innerHTML = '';
@@ -134,14 +140,9 @@ if (document.querySelector('.dashboard-body')) {
             const btn = document.createElement('button');
             btn.className = `page-btn ${i === page ? 'active' : ''}`;
             btn.innerText = i;
-            btn.addEventListener('click', () => {
-                currentPage = i;
-                fetchClients(currentPage, searchQuery);
-            });
+            btn.addEventListener('click', () => { currentPage = i; fetchClients(currentPage, searchQuery); });
             paginationDiv.appendChild(btn);
         }
-
-        // إصلاح زر التفاصيل (Details)
         document.querySelectorAll('.btn-details').forEach(btn => {
             btn.addEventListener('click', (e) => openClientDetails(e.target.getAttribute('data-clientid')));
         });
@@ -181,86 +182,143 @@ if (document.querySelector('.dashboard-body')) {
 
     document.getElementById('logoutBtn').addEventListener('click', () => { sessionStorage.clear(); window.location.href = 'index.html'; });
 
-    // ====== منطق كارت تفاصيل العميل ======
+    // كارت تفاصيل العميل
     const detailsModal = document.getElementById('clientDetailsModal');
     document.getElementById('closeDetailsModal').addEventListener('click', () => detailsModal.classList.remove('active'));
 
     async function openClientDetails(clientId) {
         currentDetailClientId = clientId;
         try {
-            // جلب بيانات العميل
             const res = await fetch(`${API_URL}?action=getClientById&token=${token}&clientId=${clientId}`);
             const data = await res.json();
             if (!data.success) return showToast(data.error, 'error');
-            
             const client = data.data;
             document.getElementById('detailClientName').innerText = client.FullName;
             document.getElementById('detailClientID').value = client.ClientID;
             document.getElementById('detailPhone').value = client.Phone;
-            
-            // تعبئة قائمة الفروع في كارت التفاصيل
-            const branchSelect = document.getElementById('detailBranch');
-            branchSelect.innerHTML = '';
-            globalSettings.branches.forEach(b => { branchSelect.innerHTML += `<option value="${b}" ${b === client.PreferredBranch ? 'selected' : ''}>${b}</option>`; });
-            
-            // تعبئة قائمة الأخصائيين
-            const specialistSelect = document.getElementById('detailSpecialist');
-            specialistSelect.innerHTML = '<option value="">لا يوجد</option>';
-            globalSettings.specialists.forEach(s => { specialistSelect.innerHTML += `<option value="${s}" ${s === client.AssignedSpecialist ? 'selected' : ''}>${s}</option>`; });
+            document.getElementById('detailBranch').innerHTML = globalSettings.branches.map(b => `<option value="${b}" ${b === client.PreferredBranch ? 'selected' : ''}>${b}</option>`).join('');
+            document.getElementById('detailSpecialist').innerHTML = '<option value="">لا يوجد</option>' + globalSettings.specialists.map(s => `<option value="${s}" ${s === client.AssignedSpecialist ? 'selected' : ''}>${s}</option>`).join('');
 
-            // جلب سجل التغييرات (History)
             const resHist = await fetch(`${API_URL}?action=getHistory&token=${token}&clientId=${clientId}`);
             const dataHist = await resHist.json();
             const historyBody = document.getElementById('historyTableBody');
             historyBody.innerHTML = '';
-            
             if (dataHist.success && dataHist.data.length > 0) {
                 dataHist.data.forEach(h => {
                     const date = new Date(h.date).toLocaleString('ar-EG');
                     historyBody.innerHTML += `<tr><td>${h.field}</td><td>${h.oldVal}</td><td>${h.newVal}</td><td>${h.changedBy}</td><td>${date}</td></tr>`;
                 });
-            } else {
-                historyBody.innerHTML = `<tr><td colspan="5" style="text-align:center; opacity:0.7;">لا يوجد تغييرات مسجلة</td></tr>`;
-            }
-            
+            } else { historyBody.innerHTML = `<tr><td colspan="5" style="text-align:center; opacity:0.7;">لا يوجد تغييرات مسجلة</td></tr>`; }
             detailsModal.classList.add('active');
         } catch (err) { showToast('فشل تحميل بيانات العميل', 'error'); }
     }
 
-    // حفظ تعديلات العميل (الفرع والأخصائي)
     document.getElementById('saveClientChangesBtn').addEventListener('click', async () => {
         const data = {
             action: 'updateClient', token, clientId: currentDetailClientId,
-            branch: document.getElementById('detailBranch').value,
-            specialist: document.getElementById('detailSpecialist').value,
+            branch: document.getElementById('detailBranch').value, specialist: document.getElementById('detailSpecialist').value,
             changedBy: sessionStorage.getItem('username')
         };
         try {
             const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(data) });
             const result = await res.json();
-            if (result.success) {
-                showToast(result.data.message, 'success');
-                openClientDetails(currentDetailClientId); // تحديث الكارت
-                fetchClients(currentPage, searchQuery); // تحديث الجدول
-            } else { showToast(result.error, 'error'); }
+            if (result.success) { showToast(result.data.message, 'success'); openClientDetails(currentDetailClientId); fetchClients(currentPage, searchQuery); } 
+            else { showToast(result.error, 'error'); }
         } catch (err) { showToast('فشل الاتصال', 'error'); }
+    });
+
+    // ====== منطق التقارير ======
+    const reportModal = document.getElementById('reportModal');
+    document.getElementById('reportBtn').addEventListener('click', () => reportModal.classList.add('active'));
+    document.getElementById('closeReportModal').addEventListener('click', () => reportModal.classList.remove('active'));
+
+    document.getElementById('reportForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('generateReportBtn');
+        const btnText = btn.querySelector('.btn-text');
+        const loader = document.getElementById('reportLoader');
+        const month = document.getElementById('reportMonth').value;
+        const year = document.getElementById('reportYear').value;
+        const branch = document.getElementById('reportBranch').value;
+
+        btnText.style.display = 'none'; loader.style.display = 'block'; btn.disabled = true;
+        try {
+            const url = `${API_URL}?action=getMonthlyReport&token=${token}&month=${month}&year=${year}&branch=${encodeURIComponent(branch)}`;
+            const res = await fetch(url);
+            const data = await res.json();
+            if (data.success) {
+                exportToCSV(data.data, `Report_${month}_${year}_${branch}.csv`);
+                showToast('تم تجهيز التقرير بنجاح', 'success');
+                reportModal.classList.remove('active');
+            } else { showToast(data.error, 'error'); }
+        } catch (err) { showToast('فشل生成 التقرير', 'error'); }
+        finally { btnText.style.display = 'inline'; loader.style.display = 'none'; btn.disabled = false; }
     });
 
     // ====== منطق لوحة الأدمن ======
     const adminBtn = document.getElementById('adminBtn');
     const adminModal = document.getElementById('adminModal');
     if (sessionStorage.getItem('userRole') === 'Admin') { adminBtn.style.display = 'flex'; }
-    adminBtn.addEventListener('click', () => adminModal.classList.add('active'));
+    adminBtn.addEventListener('click', () => { adminModal.classList.add('active'); loadUsers(); });
     document.getElementById('closeAdminModal').addEventListener('click', () => adminModal.classList.remove('active'));
     document.getElementById('editSettingType').addEventListener('change', populateEditDropdown);
 
-    document.getElementById('addUserForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const data = { action: 'addUser', token, username: document.getElementById('newUsername').value, password: document.getElementById('newPassword').value, role: document.getElementById('newRole').value, branch: document.getElementById('newUserBranch').value || 'All' };
+    async function loadUsers() {
         try {
-            const response = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(data) });
-            const res = await response.json();
-            if (res.success) { showToast('تم إضافة المستخدم بنجاح!', 'success'); document.getElementById('addUserForm').reset(); } else { showToast(res.error, 'error'); }
+            const res = await fetch(`${API_URL}?action=getUsers&token=${token}`);
+            const data = await res.json();
+            const tbody = document.getElementById('usersTableBody');
+            tbody.innerHTML = '';
+            if (data.success) {
+                data.data.forEach(u => {
+                    tbody.innerHTML += `<tr>
+                        <td>${u.username}</td><td>${u.jobTitle || '-'}</td><td>${u.role}</td>
+                        <td><button class="btn-primary btn-edit-user" data-userid="${u.id}" style="padding:3px 8px; font-size:11px; background: #6a11cb;">تعديل</button></td>
+                    </tr>`;
+                });
+                document.querySelectorAll('.btn-edit-user').forEach(btn => {
+                    btn.addEventListener('click', (e) => editUser(e.target.getAttribute('data-userid'), data.data));
+                });
+            }
+        } catch (err) { showToast('فشل تحميل المستخدمين', 'error'); }
+    }
+
+    function editUser(userId, usersList) {
+        const user = usersList.find(u => u.id === userId);
+        if (user) {
+            document.getElementById('editUserId').value = user.id;
+            document.getElementById('newUsername').value = user.username;
+            document.getElementById('newPassword').value = '';
+            document.getElementById('newJobTitle').value = user.jobTitle;
+            document.getElementById('newEmail').value = user.email;
+            document.getElementById('newProfilePic').value = user.profilePic;
+            document.getElementById('newRole').value = user.role;
+            document.getElementById('newUserBranch').value = user.branch;
+        }
+    }
+
+    document.getElementById('userManagementForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const userId = document.getElementById('editUserId').value;
+        const data = {
+            action: userId ? 'updateUser' : 'addUser', token,
+            userId: userId,
+            username: document.getElementById('newUsername').value,
+            password: document.getElementById('newPassword').value,
+            jobTitle: document.getElementById('newJobTitle').value,
+            email: document.getElementById('newEmail').value,
+            profilePic: document.getElementById('newProfilePic').value,
+            role: document.getElementById('newRole').value,
+            branch: document.getElementById('newUserBranch').value || 'All'
+        };
+        try {
+            const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(data) });
+            const result = await res.json();
+            if (result.success) {
+                showToast(result.data.message, 'success');
+                document.getElementById('userManagementForm').reset();
+                loadUsers();
+            } else { showToast(result.error, 'error'); }
         } catch (err) { showToast('فشل الاتصال', 'error'); }
     });
 
@@ -268,9 +326,10 @@ if (document.querySelector('.dashboard-body')) {
         e.preventDefault();
         const data = { action: 'addSetting', token, type: document.getElementById('settingType').value, value: document.getElementById('settingValue').value };
         try {
-            const response = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(data) });
-            const res = await response.json();
-            if (res.success) { showToast('تمت الإضافة بنجاح!', 'success'); document.getElementById('addSettingForm').reset(); fetchSettings(); } else { showToast(res.error, 'error'); }
+            const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(data) });
+            const result = await res.json();
+            if (result.success) { showToast('تمت الإضافة بنجاح!', 'success'); document.getElementById('addSettingForm').reset(); fetchSettings(); } 
+            else { showToast(result.error, 'error'); }
         } catch (err) { showToast('فشل الاتصال', 'error'); }
     });
 
@@ -278,9 +337,10 @@ if (document.querySelector('.dashboard-body')) {
         e.preventDefault();
         const data = { action: 'updateSetting', token, type: document.getElementById('editSettingType').value, oldValue: document.getElementById('editOldValue').value, newValue: document.getElementById('editNewValue').value };
         try {
-            const response = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(data) });
-            const res = await response.json();
-            if (res.success) { showToast('تم التعديل بنجاح!', 'success'); document.getElementById('editSettingForm').reset(); fetchSettings(); } else { showToast(res.error, 'error'); }
+            const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(data) });
+            const result = await res.json();
+            if (result.success) { showToast('تم التعديل بنجاح!', 'success'); document.getElementById('editSettingForm').reset(); fetchSettings(); } 
+            else { showToast(result.error, 'error'); }
         } catch (err) { showToast('فشل الاتصال', 'error'); }
     });
 
@@ -291,18 +351,14 @@ if (document.querySelector('.dashboard-body')) {
         const loader = document.getElementById('importLoader');
         const fileInput = document.getElementById('importFile');
         const branch = document.getElementById('importBranch').value;
-        
         if (!fileInput.files[0]) { return showToast('يرجى اختيار ملف CSV', 'warning'); }
         btnText.style.display = 'none'; loader.style.display = 'block'; importBtn.disabled = true;
-
         try {
             const file = fileInput.files[0];
             const text = await file.text();
             const lines = text.split('\n').filter(line => line.trim() !== '');
             const clientsArray = [];
-            const startIndex = 1; // نتخطى عناوين الأعمدة
-            
-            for (let i = startIndex; i < lines.length; i++) {
+            for (let i = 1; i < lines.length; i++) {
                 const parts = lines[i].split(/[,،\t]/);
                 const cleanPart = (p) => p ? p.replace(/^"|"$/g, '').trim() : '';
                 const name = cleanPart(parts[2]); const phone = cleanPart(parts[3]);
@@ -310,22 +366,17 @@ if (document.querySelector('.dashboard-body')) {
                 const specialist = cleanPart(parts[8]); const notes = cleanPart(parts[13]);
                 if (name && phone) { clientsArray.push({ name, phone, age, csvBranch, specialist, notes }); }
             }
-
             if (clientsArray.length === 0) { 
                 btnText.style.display = 'inline'; loader.style.display = 'none'; importBtn.disabled = false;
                 return showToast('لم يتم العثور على بيانات صحيحة', 'warning'); 
             }
-
-            const response = await fetch(API_URL, {
+            const res = await fetch(API_URL, {
                 method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({ action: 'bulkAddClients', token, branch, clients: clientsArray, createdBy: sessionStorage.getItem('username') })
             });
-            const res = await response.json();
-            if (res.success) {
-                showToast(res.data.message, 'success');
-                document.getElementById('importClientsForm').reset();
-                fetchClients(currentPage, searchQuery); 
-            } else { showToast(res.error, 'error'); }
+            const result = await res.json();
+            if (result.success) { showToast(result.data.message, 'success'); document.getElementById('importClientsForm').reset(); fetchClients(currentPage, searchQuery); } 
+            else { showToast(result.error, 'error'); }
         } catch (err) { showToast('فشل قراءة الملف', 'error'); }
         finally { btnText.style.display = 'inline'; loader.style.display = 'none'; importBtn.disabled = false; }
     });
