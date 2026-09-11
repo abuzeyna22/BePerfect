@@ -1,543 +1,243 @@
-/**
- * ==========================================
- * Be Perfect CRM - Backend System
- * ==========================================
- */
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Be Perfect CRM | لوحة التحكم</title>
+    <link rel="icon" type="image/png" href="https://i.ibb.co/77D762Y/image.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .notif-container { position: relative; }
+        .notif-badge { position: absolute; top: -5px; left: -5px; background: #ff3b3b; color: white; border-radius: 50%; width: 20px; height: 20px; display: none; justify-content: center; align-items: center; font-size: 11px; font-weight: bold; }
+        .notif-dropdown { position: absolute; top: 50px; left: 0; width: 300px; background: rgba(40, 40, 70, 0.95); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.2); border-radius: 10px; z-index: 10000; display: none; max-height: 400px; overflow-y: auto; }
+        .notif-item { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 14px; }
+        .notif-item.unread { background: rgba(95, 211, 110, 0.1); }
+        .btn-whatsapp { background: linear-gradient(to right, #25D366, #128C7E); color: white; padding: 10px 15px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block; text-align: center; margin-top: 10px; }
+        
+        .admin-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 10px; }
+        .admin-tab { background: transparent; border: none; color: #fff; opacity: 0.5; cursor: pointer; padding: 8px 16px; font-size: 14px; font-weight: 600; border-radius: 8px; transition: all 0.3s; }
+        .admin-tab.active, .admin-tab:hover { opacity: 1; background: rgba(255,255,255,0.1); }
+        .admin-tab-content { display: none; }
+        .admin-tab-content.active { display: block; }
 
-const CONFIG = {
-  SECRET_TOKEN: 'BP_CRM_SECURE_TOKEN_2024',
-  ADMIN_DEFAULT_PASS: 'admin123',
-  SEC_DEFAULT_PASS: 'secret123',
-  MOD_DEFAULT_PASS: 'mod123'
-};
+        .chat-container { position: relative; }
+        .chat-box { flex: 1; overflow-y: auto; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 10px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px; }
+        .chat-msg { padding: 8px 12px; border-radius: 10px; max-width: 80%; word-wrap: break-word; }
+        .chat-msg.me { background: #2575fc; align-self: flex-end; }
+        .chat-msg.other { background: rgba(255,255,255,0.1); align-self: flex-start; }
+        
+        /* ستايل قائمة المنشن */
+        .mention-dropdown { position: absolute; bottom: 65px; right: 0; width: 200px; background: rgba(40, 40, 70, 0.95); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.2); border-radius: 10px; z-index: 1000; display: none; max-height: 150px; overflow-y: auto; }
+        .mention-item { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .mention-item:hover { background: rgba(255,255,255,0.1); }
+    </style>
+</head>
+<body class="dashboard-body">
 
-const TABS = {
-  USERS: 'Users', CLIENTS: 'Clients', LOGS: 'SessionLogs', 
-  EVENTS: 'Events', REGISTRATIONS: 'EventRegistrations', SETTINGS: 'Settings',
-  HISTORY: 'History', NOTIFICATIONS: 'Notifications', CHAT: 'Chat'
-};
+    <div id="toast-container"></div>
 
-const ss = SpreadsheetApp.getActiveSpreadsheet();
+    <header class="topbar glass-card">
+        <div class="topbar-right">
+            <img src="https://i.ibb.co/77D762Y/image.png" alt="Logo" class="topbar-logo">
+            <h2>Be Perfect <span class="subtitle-inline">CRM</span></h2>
+        </div>
+        <div class="topbar-left">
+            <button id="chatBtn" class="btn-primary" style="background: linear-gradient(to right, #8e2de2, #4a00e0);">💬 الشات</button>
+            <button id="reportBtn" class="btn-primary" style="background: linear-gradient(to right, #6a11cb, #2575fc);">📊 تقارير</button>
+            
+            <div class="notif-container">
+                <button class="btn-primary" style="background: transparent; border: 1px solid rgba(255,255,255,0.2); font-size: 20px; padding: 5px 12px;" onclick="toggleNotifs()">🔔</button>
+                <span id="notifBadge" class="notif-badge">0</span>
+                <div id="notifDropdown" class="notif-dropdown">
+                    <div style="padding: 10px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                        <button onclick="markNotifsRead()" style="background:transparent; border:none; color:#ff9a44; cursor:pointer; font-size:12px;">تعليم الكل كمقروء</button>
+                    </div>
+                    <div id="notifList"></div>
+                </div>
+            </div>
 
-function initializeSystem() {
-  createTabIfNotExists(TABS.USERS, ['ID', 'Username', 'PasswordHash', 'Role', 'Branch', 'CreatedAt']);
-  createTabIfNotExists(TABS.CLIENTS, ['ClientID', 'FullName', 'Age', 'Phone', 'PreferredBranch', 'RequiredSpecialty', 'Source', 'ReferralType', 'Status', 'Notes', 'CreatedBy', 'CreatedAt', 'AssignedSpecialist']);
-  createTabIfNotExists(TABS.LOGS, ['LogID', 'ClientID', 'SessionDate', 'SpecialistName', 'SessionStatus', 'HasNextSession', 'HasRecommendations', 'Notes', 'ClientComplaints', 'LoggedBy']);
-  createTabIfNotExists(TABS.EVENTS, ['EventID', 'EventName', 'EventType', 'TargetAudience', 'IsPaid', 'EventDate', 'Status']);
-  createTabIfNotExists(TABS.REGISTRATIONS, ['RegID', 'EventID', 'FullName', 'Phone', 'ConvertedToClient', 'RegisteredAt']);
-  createTabIfNotExists(TABS.SETTINGS, ['Type', 'Value']);
-  createTabIfNotExists(TABS.HISTORY, ['ChangeID', 'ClientID', 'FieldName', 'OldValue', 'NewValue', 'ChangedBy', 'ChangeDate']);
-  createTabIfNotExists(TABS.NOTIFICATIONS, ['NotifID', 'TargetUser', 'Message', 'IsRead', 'CreatedAt']);
-  createTabIfNotExists(TABS.CHAT, ['MessageID', 'Sender', 'Receiver', 'Message', 'Timestamp']);
-  
-  seedSettings();
-  seedDefaultUsers();
-  checkAndMigrate(); 
-  checkAndMigrateUsers();
-  checkAndMigrateSettings();
-  return 'System Initialized Successfully';
-}
+            <button id="adminBtn" class="btn-primary" style="display:none; background: linear-gradient(to right, #11998e, #38ef7d);">⚙️ الإعدادات</button>
+            <div class="user-info">
+                <span id="displayUsername">مستخدم</span>
+                <span id="displayRole" class="role-badge">الدور</span>
+            </div>
+            <button id="logoutBtn" class="btn-danger">خروج</button>
+        </div>
+    </header>
 
-// دالة مساعدة ذكية للبحث عن رقم العمود بناءً على اسمه
-function getColIdx(sheet, headerName) {
-  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  return headers.indexOf(headerName);
-}
+    <main class="main-content">
+        <div class="stats-grid">
+            <div class="glass-card stat-card"><h3>إجمالي العملاء</h3><p id="totalClients">0</p></div>
+            <div class="glass-card stat-card"><h3>عملاء اليوم</h3><p id="todayClients">0</p></div>
+            <div class="glass-card stat-card"><h3>تحت الجلسات</h3><p id="activeClients">0</p></div>
+        </div>
 
-function checkAndMigrateSettings() {
-  const sheet = ss.getSheetByName(TABS.SETTINGS);
-  const data = sheet.getDataRange().getValues();
-  const existingTypes = data.map(row => row[0]);
-  if (!existingTypes.includes('Source')) {
-    const newSources = [['Source', 'سوشيال ميديا'], ['Source', 'مكالمة مباشرة'], ['Source', 'زيارة فرع'], ['Source', 'إحالة'], ['Source', 'ورشة عمل']];
-    sheet.getRange(sheet.getLastRow() + 1, 1, newSources.length, 2).setValues(newSources);
-  }
-}
+        <div class="glass-card content-section">
+            <div class="section-header">
+                <h2>إدارة العملاء</h2>
+                <button id="addClientBtn" class="btn-primary">+ إضافة عميل جديد</button>
+            </div>
+            <div class="search-bar"><input type="text" id="searchInput" placeholder="ابحث بالاسم أو رقم الهاتف..."></div>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead><tr><th>كود العميل</th><th>الاسم</th><th>الهاتف</th><th>الفرع</th><th>التخصص</th><th>الحالة</th><th>إجراءات</th></tr></thead>
+                    <tbody id="clientsTableBody"></tbody>
+                </table>
+                <div id="emptyState" class="empty-state" style="display: none;"><p>لا يوجد عملاء لعرضهم حالياً.</p></div>
+            </div>
+            <div id="pagination" class="pagination"></div>
+        </div>
+    </main>
 
-function checkAndMigrate() {
-  const sheet = ss.getSheetByName(TABS.CLIENTS);
-  if (getColIdx(sheet, 'AssignedSpecialist') === -1) {
-    sheet.insertColumnAfter(sheet.getLastColumn());
-    sheet.getRange(1, sheet.getLastColumn()).setValue('AssignedSpecialist').setFontWeight('bold').setBackground('#f3f4f6');
-  }
-}
+    <!-- نافذة إضافة عميل -->
+    <div id="clientModal" class="modal-overlay">
+        <div class="glass-card modal-box">
+            <div class="modal-header"><h3>تسجيل عميل جديد</h3><button class="close-modal" id="closeModalBtn">&times;</button></div>
+            <form id="addClientForm" class="modal-form">
+                <div class="form-grid">
+                    <div class="input-group"><label>الاسم الكامل *</label><input type="text" id="fullName" required></div>
+                    <div class="input-group"><label>رقم الهاتف *</label><input type="text" id="phone" required></div>
+                    <div class="input-group"><label>العمر *</label><input type="number" id="age" min="1" max="120" required></div>
+                    <div class="input-group"><label>الفرع المفضل *</label><select id="preferredBranch" required></select></div>
+                    <div class="input-group"><label>التخصص المطلوب *</label><select id="requiredSpecialty" required></select></div>
+                    <div class="input-group"><label>مصدر العميل</label><select id="source"></select></div>
+                </div>
+                <div class="input-group full-width"><label>ملاحظات أولية</label><textarea id="notes" rows="3"></textarea></div>
+                <button type="submit" id="submitClientBtn" class="btn-primary"><span class="btn-text">حفظ العميل</span><div class="loader" id="clientLoader"></div></button>
+            </form>
+        </div>
+    </div>
 
-function checkAndMigrateUsers() {
-  const sheet = ss.getSheetByName(TABS.USERS);
-  if (getColIdx(sheet, 'Email') === -1) {
-    const lastCol = sheet.getLastColumn();
-    sheet.insertColumnAfter(lastCol); sheet.getRange(1, lastCol + 1).setValue('Email').setFontWeight('bold').setBackground('#f3f4f6');
-    sheet.insertColumnAfter(lastCol + 1); sheet.getRange(1, lastCol + 2).setValue('JobTitle').setFontWeight('bold').setBackground('#f3f4f6');
-    sheet.insertColumnAfter(lastCol + 2); sheet.getRange(1, lastCol + 3).setValue('ProfilePic').setFontWeight('bold').setBackground('#f3f4f6');
-    sheet.insertColumnAfter(lastCol + 3); sheet.getRange(1, lastCol + 4).setValue('WhatsApp').setFontWeight('bold').setBackground('#f3f4f6');
-  }
-}
+    <!-- نافذة تفاصيل وتعديل العميل -->
+    <div id="clientDetailsModal" class="modal-overlay">
+        <div class="glass-card modal-box">
+            <div class="modal-header"><h3>ملف العميل: <span id="detailClientName" style="color:#ff9a44;"></span></h3><button class="close-modal" id="closeDetailsModal">&times;</button></div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                <div class="input-group"><label>كود العميل</label><input type="text" id="detailClientID" readonly></div>
+                <div class="input-group"><label>رقم الهاتف</label><input type="text" id="detailPhone" readonly></div>
+            </div>
+            <a id="whatsappBtn" href="#" target="_blank" class="btn-whatsapp" style="width: 100%;">إرسال تنبيه واتساب للعميل</a>
+            <h4 style="margin: 20px 0 15px; color:#ff9a44;">تعديل البيانات</h4>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="input-group"><label>الفرع الحالي</label><select id="detailBranch"></select></div>
+                <div class="input-group"><label>الأخصائي المسؤول</label><select id="detailSpecialist"><option value="">لا يوجد</option></select></div>
+            </div>
+            <div class="input-group full-width" style="margin-top:15px;">
+                <label>إضافة ملاحظة جديدة (سيتم تسجيلها في السجل بالأسفل)</label>
+                <textarea id="newNoteText" rows="2" placeholder="اكتب ملاحظتك هنا..."></textarea>
+            </div>
+            <button id="saveClientChangesBtn" class="btn-primary" style="margin-bottom: 20px; margin-top:10px;">حفظ التعديلات والملاحظات</button>
+            <h4 style="margin-bottom:15px; color:#ff9a44;">سجل التغييرات والملاحظات (Timeline)</h4>
+            <div class="table-container" style="max-height: 250px; overflow-y: auto;">
+                <table class="data-table"><thead><tr><th>الحقل</th><th>القديمة</th><th>الجديدة</th><th>بواسطة</th><th>التاريخ</th></tr></thead><tbody id="historyTableBody"></tbody></table>
+            </div>
+        </div>
+    </div>
 
-function createTabIfNotExists(tabName, headers) {
-  let sheet = ss.getSheetByName(tabName);
-  if (!sheet) {
-    sheet = ss.insertSheet(tabName);
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    sheet.setFrozenRows(1);
-    sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold').setBackground('#f3f4f6');
-  }
-}
+    <!-- نافذة التقارير -->
+    <div id="reportModal" class="modal-overlay">
+        <div class="glass-card modal-box">
+            <div class="modal-header"><h3>استخراج تقرير شهري</h3><button class="close-modal" id="closeReportModal">&times;</button></div>
+            <form id="reportForm" class="modal-form">
+                <div class="form-grid">
+                    <div class="input-group"><label>اختر الشهر *</label><select id="reportMonth" required><option value="1">يناير</option><option value="2">فبراير</option><option value="3">مارس</option><option value="4">أبريل</option><option value="5">مايو</option><option value="6">يونيو</option><option value="7">يوليو</option><option value="8">أغسطس</option><option value="9">سبتمبر</option><option value="10">أكتوبر</option><option value="11">نوفمبر</option><option value="12">ديسمبر</option></select></div>
+                    <div class="input-group"><label>اختر السنة *</label><input type="number" id="reportYear" value="2024" required></div>
+                    <div class="input-group full-width"><label>اختر الفرع *</label><select id="reportBranch"><option value="All">كل الفروع</option></select></div>
+                </div>
+                <button type="submit" id="generateReportBtn" class="btn-primary" style="background: linear-gradient(to right, #6a11cb, #2575fc);"><span class="btn-text">استخراج Excel/CSV</span><div class="loader" id="reportLoader"></div></button>
+            </form>
+        </div>
+    </div>
 
-function seedSettings() {
-  const sheet = ss.getSheetByName(TABS.SETTINGS);
-  if (sheet.getLastRow() <= 1) {
-    const settings = [
-      ['Branch', 'السيوف'], ['Branch', 'ميامي'], ['Branch', 'لوران'], ['Branch', 'سموحة 1'], ['Branch', 'سموحة 2'], ['Branch', 'سبورتنج 1'], ['Branch', 'سبورتنج 2'], ['Branch', 'العجمي'], ['Branch', 'أونلاين'],
-      ['Specialty', 'تعديل سلوك'], ['Specialty', 'تخاطب'], ['Specialty', 'كابل ثيرابي'], ['Specialty', 'التريكز والقلق'], ['Specialty', 'الصدمات'], ['Specialty', 'مشكلات دراسية'], ['Specialty', 'استشارات أونلاين'],
-      ['Specialist', 'د. مريم'], ['Specialist', 'د. أحمد'], ['Specialist', 'د. سارة'],
-      ['Source', 'سوشيال ميديا'], ['Source', 'مكالمة مباشرة'], ['Source', 'زيارة فرع'], ['Source', 'إحالة'], ['Source', 'ورشة عمل']
-    ];
-    sheet.getRange(2, 1, settings.length, 2).setValues(settings);
-  }
-}
+    <!-- نافذة الشات الداخلي -->
+    <div id="chatModal" class="modal-overlay">
+        <div class="glass-card modal-box chat-container" style="max-width: 500px; height: 80vh; display: flex; flex-direction: column;">
+            <div class="modal-header"><h3>الشات الداخلي</h3><button class="close-modal" id="closeChatModal">&times;</button></div>
+            <div style="margin-bottom: 15px;">
+                <select id="chatTarget" style="width: 100%; padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.2); color: #fff; border: 1px solid rgba(255,255,255,0.2);">
+                    <option value="General">شات عام (للجميع)</option>
+                </select>
+            </div>
+            <div id="chatBox" class="chat-box"></div>
+            
+            <!-- قائمة المنشن المنبثقة -->
+            <div id="mentionDropdown" class="mention-dropdown"></div>
+            
+            <form id="chatForm" style="display: flex; gap: 10px; position: relative;">
+                <input type="text" id="chatInput" placeholder="اكتب رسالتك... (اضغط @ لعمل منشن)" required style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: #fff;">
+                <button type="submit" class="btn-primary">إرسال</button>
+            </form>
+        </div>
+    </div>
 
-function seedDefaultUsers() {
-  const sheet = ss.getSheetByName(TABS.USERS);
-  if (sheet.getDataRange().getValues().length <= 1) {
-    const createdAt = new Date();
-    sheet.appendRow([Utilities.getUuid(), 'admin', computeSHA256(CONFIG.ADMIN_DEFAULT_PASS), 'Admin', 'All', createdAt, '', '', '', '']);
-    sheet.appendRow([Utilities.getUuid(), 'secretary', computeSHA256(CONFIG.SEC_DEFAULT_PASS), 'Secretary', 'السيوف', createdAt, '', '', '', '']);
-    sheet.appendRow([Utilities.getUuid(), 'moderator', computeSHA256(CONFIG.MOD_DEFAULT_PASS), 'Moderator', 'All', createdAt, '', '', '', '']);
-  }
-}
+    <!-- نافذة إعدادات الأدمن -->
+    <div id="adminModal" class="modal-overlay">
+        <div class="glass-card modal-box" style="max-width: 800px;">
+            <div class="modal-header"><h3>إعدادات النظام (للأدمن فقط)</h3><button class="close-modal" id="closeAdminModal">&times;</button></div>
+            <div class="admin-tabs">
+                <button class="admin-tab active" data-tab="users">المستخدمين</button>
+                <button class="admin-tab" data-tab="settings">الإعدادات</button>
+                <button class="admin-tab" data-tab="import">الاستيراد</button>
+            </div>
 
-function computeSHA256(input) {
-  const rawHash = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, input + CONFIG.SECRET_TOKEN, Utilities.Charset.UTF_8);
-  return rawHash.map(function(byte) { return ('0' + (byte & 0xFF).toString(16)).slice(-2); }).join('');
-}
+            <div id="tab-users" class="admin-tab-content active">
+                <h4 style="margin-bottom:15px; color:#ff9a44;">1. إضافة / تعديل مستخدم</h4>
+                <form id="userManagementForm" class="modal-form">
+                    <div class="form-grid">
+                        <input type="hidden" id="editUserId">
+                        <div class="input-group"><label>اسم المستخدم *</label><input type="text" id="newUsername" required></div>
+                        <div class="input-group"><label>كلمة المرور (اتركها فارغة عند التعديل)</label><input type="text" id="newPassword" placeholder="********"></div>
+                        <div class="input-group"><label>الوظيفة (Job Title)</label><input type="text" id="newJobTitle" placeholder="مثال: سكرتير فرع سموحة"></div>
+                        <div class="input-group"><label>البريد الإلكتروني</label><input type="email" id="newEmail" placeholder="user@beperfect.com"></div>
+                        <div class="input-group"><label>رقم واتساب</label><input type="text" id="newWhatsApp" placeholder="2010xxxxxxx"></div>
+                        <div class="input-group"><label>رابط الصورة</label><input type="text" id="newProfilePic" placeholder="https://..."></div>
+                        <div class="input-group"><label>الصلاحية *</label><select id="newRole"><option value="Secretary">سكرتير</option><option value="Moderator">مودريتور</option><option value="Admin">أدمن</option></select></div>
+                        <div class="input-group"><label>الفرع</label><input type="text" id="newUserBranch" placeholder="All لكل الفروع"></div>
+                    </div>
+                    <div style="display:flex; gap: 10px;">
+                        <button type="submit" id="saveUserBtn" class="btn-primary">حفظ المستخدم</button>
+                        <button type="button" id="editUserBtn" class="btn-primary" style="background: linear-gradient(to right, #6a11cb, #2575fc);">جلب للتعديل</button>
+                    </div>
+                </form>
+                <div class="table-container" style="margin-top: 15px; max-height: 150px; overflow-y: auto;">
+                    <table class="data-table"><thead><tr><th>الاسم</th><th>الوظيفة</th><th>الصلاحية</th><th></th></tr></thead><tbody id="usersTableBody"></tbody></table>
+                </div>
+            </div>
 
-function generateSessionToken(userId) {
-  const rawHash = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, userId + new Date().getTime() + CONFIG.SECRET_TOKEN, Utilities.Charset.UTF_8);
-  return rawHash.map(function(byte) { return ('0' + (byte & 0xFF).toString(16)).slice(-2); }).join('');
-}
+            <div id="tab-settings" class="admin-tab-content">
+                <h4 style="margin-bottom:15px; color:#ff9a44;">2. إضافة (فرع / تخصص / أخصائي / مصدر)</h4>
+                <form id="addSettingForm" class="modal-form">
+                    <div class="form-grid">
+                        <div class="input-group"><label>النوع *</label><select id="settingType"><option value="Branch">فرع</option><option value="Specialty">تخصص</option><option value="Specialist">أخصائي</option><option value="Source">مصدر</option></select></div>
+                        <div class="input-group"><label>الاسم *</label><input type="text" id="settingValue" required placeholder="اكتب الاسم الجديد"></div>
+                    </div>
+                    <button type="submit" class="btn-primary">حفظ الإعداد</button>
+                </form>
+                <hr style="margin: 20px 0; border-color: rgba(255,255,255,0.2);"/>
+                <h4 style="margin-bottom:15px; color:#ff9a44;">3. تعديل (فرع / تخصص / أخصائي / مصدر)</h4>
+                <form id="editSettingForm" class="modal-form">
+                    <div class="form-grid">
+                        <div class="input-group"><label>النوع *</label><select id="editSettingType"><option value="Branch">فرع</option><option value="Specialty">تخصص</option><option value="Specialist">أخصائي</option><option value="Source">مصدر</option></select></div>
+                        <div class="input-group"><label>اختر العنصر الحالي *</label><select id="editOldValue"></select></div>
+                        <div class="input-group full-width"><label>الاسم الجديد *</label><input type="text" id="editNewValue" required placeholder="اكتب الاسم الجديد هنا"></div>
+                    </div>
+                    <button type="submit" class="btn-primary">تعديل الاسم</button>
+                </form>
+            </div>
 
-function generateClientNumber() {
-  const sheet = ss.getSheetByName(TABS.CLIENTS);
-  const lastRow = sheet.getLastRow();
-  if (lastRow === 0) return 'BP-1001';
-  return 'BP-' + (1000 + lastRow - 1); 
-}
+            <div id="tab-import" class="admin-tab-content">
+                <h4 style="margin-bottom:15px; color:#ff9a44;">4. استيراد بيانات عملاء قدامى (CSV)</h4>
+                <form id="importClientsForm" class="modal-form">
+                    <div class="input-group full-width"><label>الفرع الافتراضي *</label><select id="importBranch" required></select></div>
+                    <div class="input-group full-width"><label>اختر ملف CSV *</label><input type="file" id="importFile" accept=".csv" required style="width: 100%; padding: 10px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; color: #fff;"></div>
+                    <button type="submit" id="importBtn" class="btn-primary"><span class="btn-text">رفع واستيراد الملف</span><div class="loader" id="importLoader"></div></button>
+                </form>
+            </div>
+        </div>
+    </div>
 
-function createNotification(targetUser, message) {
-  const sheet = ss.getSheetByName(TABS.NOTIFICATIONS);
-  sheet.appendRow([Utilities.getUuid(), targetUser, message, false, new Date()]);
-}
-
-function doPost(e) {
-  try {
-    const data = JSON.parse(e.postData.contents);
-    const action = data.action;
-    let result = {};
-    switch(action) {
-      case 'login': result = handleLogin(data); break;
-      case 'addClient': if (validateToken(data.token)) result = handleAddClient(data); else throw new Error('Unauthorized'); break;
-      case 'bulkAddClients': if (validateToken(data.token)) result = handleBulkAddClients(data); else throw new Error('Unauthorized'); break;
-      case 'updateClient': if (validateToken(data.token)) result = handleUpdateClient(data); else throw new Error('Unauthorized'); break;
-      case 'addUser': if (validateToken(data.token)) result = handleAddUser(data); else throw new Error('Unauthorized'); break;
-      case 'updateUser': if (validateToken(data.token)) result = handleUpdateUser(data); else throw new Error('Unauthorized'); break;
-      case 'addSetting': if (validateToken(data.token)) result = handleAddSetting(data); else throw new Error('Unauthorized'); break;
-      case 'updateSetting': if (validateToken(data.token)) result = handleUpdateSetting(data); else throw new Error('Unauthorized'); break;
-      case 'markNotifRead': if (validateToken(data.token)) result = handleMarkNotifRead(data); else throw new Error('Unauthorized'); break;
-      case 'sendChat': if (validateToken(data.token)) result = handleSendChat(data); else throw new Error('Unauthorized'); break;
-      default: throw new Error('Invalid Action');
-    }
-    return ContentService.createTextOutput(JSON.stringify({ success: true, data: result })).setMimeType(ContentService.MimeType.JSON);
-  } catch (error) {
-    return ContentService.createTextOutput(JSON.stringify({ success: false, error: error.message })).setMimeType(ContentService.MimeType.JSON);
-  }
-}
-
-function doGet(e) {
-  try {
-    const action = e.parameter.action;
-    let result = {};
-    switch(action) {
-      case 'getClients': if (validateToken(e.parameter.token)) result = handleGetClients(e.parameter); else throw new Error('Unauthorized'); break;
-      case 'getClientById': if (validateToken(e.parameter.token)) result = handleGetClientById(e.parameter); else throw new Error('Unauthorized'); break;
-      case 'getHistory': if (validateToken(e.parameter.token)) result = handleGetHistory(e.parameter); else throw new Error('Unauthorized'); break;
-      case 'getSettings': result = handleGetSettings(); break;
-      case 'getUsers': if (validateToken(e.parameter.token)) result = handleGetUsers(); else throw new Error('Unauthorized'); break;
-      case 'getMonthlyReport': if (validateToken(e.parameter.token)) result = handleGetMonthlyReport(e.parameter); else throw new Error('Unauthorized'); break;
-      case 'getNotifs': if (validateToken(e.parameter.token)) result = handleGetNotifs(e.parameter); else throw new Error('Unauthorized'); break;
-      case 'getChat': if (validateToken(e.parameter.token)) result = handleGetChat(e.parameter); else throw new Error('Unauthorized'); break;
-      default: throw new Error('Invalid Action');
-    }
-    return ContentService.createTextOutput(JSON.stringify({ success: true, data: result })).setMimeType(ContentService.MimeType.JSON);
-  } catch (error) {
-    return ContentService.createTextOutput(JSON.stringify({ success: false, error: error.message })).setMimeType(ContentService.MimeType.JSON);
-  }
-}
-
-function validateToken(token) { return token && token.length > 20; }
-
-function handleLogin(data) {
-  const sheet = ss.getSheetByName(TABS.USERS);
-  const rows = sheet.getDataRange().getValues();
-  const userCol = getColIdx(sheet, 'Username');
-  const passCol = getColIdx(sheet, 'PasswordHash');
-  
-  for (let i = 1; i < rows.length; i++) {
-    if (rows[i][userCol] === data.username) {
-      if (rows[i][passCol] === computeSHA256(data.password)) { 
-        return { token: generateSessionToken(rows[i][0]), role: rows[i][3], branch: rows[i][4], username: rows[i][userCol] }; 
-      } else throw new Error('كلمة المرور غير صحيحة');
-    }
-  }
-  throw new Error('اسم المستخدم غير موجود');
-}
-
-// دوال العملاء (محدثة بالتعامل الذكي)
-function handleAddClient(data) {
-  const sheet = ss.getSheetByName(TABS.CLIENTS);
-  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  const phoneIdx = headers.indexOf('Phone');
-  
-  const rows = sheet.getDataRange().getValues();
-  for (let i = 1; i < rows.length; i++) { if (rows[i][phoneIdx] === data.phone) throw new Error('تنبيه: هذا العميل مسجل مسبقاً برقم الهاتف هذا'); }
-  
-  // بناء صف جديد ديناميكياً بناءً على اسم العمود
-  const rowData = headers.map(h => {
-    if (h === 'ClientID') return generateClientNumber();
-    if (h === 'FullName') return data.fullName;
-    if (h === 'Age') return data.age;
-    if (h === 'Phone') return data.phone;
-    if (h === 'PreferredBranch') return data.preferredBranch;
-    if (h === 'RequiredSpecialty') return data.requiredSpecialty;
-    if (h === 'Source') return data.source || 'غير محدد';
-    if (h === 'ReferralType') return data.referralType || 'لا يوجد';
-    if (h === 'Status') return 'عميل محتمل';
-    if (h === 'Notes') return data.notes || '';
-    if (h === 'CreatedBy') return data.createdBy;
-    if (h === 'CreatedAt') return new Date();
-    if (h === 'AssignedSpecialist') return data.assignedSpecialist || '';
-    return '';
-  });
-  
-  sheet.appendRow(rowData);
-  
-  const usersSheet = ss.getSheetByName(TABS.USERS);
-  const users = usersSheet.getDataRange().getValues();
-  const uRoleCol = getColIdx(usersSheet, 'Role');
-  const uBranchCol = getColIdx(usersSheet, 'Branch');
-  const uUserCol = getColIdx(usersSheet, 'Username');
-  const msg = `عميل جديد: ${data.fullName} في فرع ${data.preferredBranch} بواسطة ${data.createdBy}`;
-  
-  for (let i = 1; i < users.length; i++) {
-    if (users[i][uRoleCol] === 'Admin' || users[i][uBranchCol] === 'All' || users[i][uBranchCol] === data.preferredBranch) {
-      createNotification(users[i][uUserCol], msg);
-    }
-  }
-  return { message: 'تم إضافة العميل بنجاح' };
-}
-
-function handleBulkAddClients(data) {
-  const sheet = ss.getSheetByName(TABS.CLIENTS);
-  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  const phoneIdx = headers.indexOf('Phone');
-  const existingRows = sheet.getDataRange().getValues();
-  const existingPhones = existingRows.map(r => String(r[phoneIdx]));
-  let addedCount = 0, skippedCount = 0;
-  const newRows = [];
-  const settings = handleGetSettings();
-  
-  data.clients.forEach(c => {
-    if (!c.name || !c.phone) { skippedCount++; return; }
-    if (existingPhones.includes(String(c.phone))) { skippedCount++; return; }
-    
-    let finalBranch = data.branch;
-    if (c.csvBranch && settings.branches.includes(c.csvBranch)) finalBranch = c.csvBranch;
-    
-    // بناء الصف ديناميكياً
-    const rowData = headers.map(h => {
-      if (h === 'ClientID') return generateClientNumber();
-      if (h === 'FullName') return c.name;
-      if (h === 'Age') return c.age || '';
-      if (h === 'Phone') return String(c.phone);
-      if (h === 'PreferredBranch') return finalBranch;
-      if (h === 'RequiredSpecialty') return 'غير محدد';
-      if (h === 'Source') return 'بيانات قديمة';
-      if (h === 'ReferralType') return 'لا يوجد';
-      if (h === 'Status') return 'عميل محتمل';
-      if (h === 'Notes') return `مستورد - ${c.notes || ''}`;
-      if (h === 'CreatedBy') return data.createdBy;
-      if (h === 'CreatedAt') return new Date();
-      if (h === 'AssignedSpecialist') return c.specialist && settings.specialists.includes(c.specialist) ? c.specialist : '';
-      return '';
-    });
-    
-    newRows.push(rowData);
-    existingPhones.push(String(c.phone));
-    addedCount++;
-  });
-  
-  if (newRows.length > 0) { sheet.getRange(sheet.getLastRow() + 1, 1, newRows.length, headers.length).setValues(newRows); }
-  createNotification('Admin', `تم استيراد ${addedCount} عميل جديد بواسطة ${data.createdBy}`);
-  return { message: `تم استيراد ${addedCount} عميل. تم تجاهل ${skippedCount} (مكرر أو ناقص).` };
-}
-
-function handleGetClients(params) {
-  const sheet = ss.getSheetByName(TABS.CLIENTS);
-  const rows = sheet.getDataRange().getValues();
-  const headers = rows[0];
-  let clients = [];
-  const search = (params.search || '').toLowerCase();
-  for (let i = 1; i < rows.length; i++) {
-    let clientObj = {};
-    for (let j = 0; j < headers.length; j++) { clientObj[headers[j]] = rows[i][j]; }
-    if (search) {
-      const nameMatch = String(clientObj.FullName).toLowerCase().includes(search);
-      const phoneMatch = String(clientObj.Phone).toLowerCase().includes(search);
-      if (!nameMatch && !phoneMatch) continue;
-    }
-    clients.push(clientObj);
-  }
-  const page = parseInt(params.page) || 1, limit = 20, start = (page - 1) * limit, end = start + limit;
-  return { clients: clients.slice(start, end), total: clients.length };
-}
-
-function handleGetClientById(params) {
-  const sheet = ss.getSheetByName(TABS.CLIENTS);
-  const rows = sheet.getDataRange().getValues();
-  const headers = rows[0];
-  const idIdx = headers.indexOf('ClientID');
-  for (let i = 1; i < rows.length; i++) {
-    if (rows[i][idIdx] === params.clientId) {
-      let clientObj = {};
-      for (let j = 0; j < headers.length; j++) { clientObj[headers[j]] = rows[i][j]; }
-      return clientObj;
-    }
-  }
-  throw new Error('العميل غير موجود');
-}
-
-// دالة تعديل العميل وتسجيل الملاحظات والتغييرات بشكل ديناميكي
-function handleUpdateClient(data) {
-  const sheet = ss.getSheetByName(TABS.CLIENTS);
-  const historySheet = ss.getSheetByName(TABS.HISTORY);
-  const rows = sheet.getDataRange().getValues();
-  const headers = rows[0];
-  
-  const idIdx = headers.indexOf('ClientID');
-  const nameIdx = headers.indexOf('FullName');
-  const branchIdx = headers.indexOf('PreferredBranch');
-  const specialistIdx = headers.indexOf('AssignedSpecialist');
-  
-  for (let i = 1; i < rows.length; i++) {
-    if (rows[i][idIdx] === data.clientId) {
-      if (data.branch && rows[i][branchIdx] !== data.branch) {
-        historySheet.appendRow([Utilities.getUuid(), data.clientId, 'تغيير الفرع', rows[i][branchIdx], data.branch, data.changedBy, new Date()]);
-        sheet.getRange(i + 1, branchIdx + 1).setValue(data.branch); // +1 because getRange is 1-indexed
-      }
-      if (data.specialist !== undefined && rows[i][specialistIdx] !== data.specialist) {
-        historySheet.appendRow([Utilities.getUuid(), data.clientId, 'تغيير الأخصائي', rows[i][specialistIdx] || 'لا يوجد', data.specialist || 'لا يوجد', data.changedBy, new Date()]);
-        sheet.getRange(i + 1, specialistIdx + 1).setValue(data.specialist);
-      }
-      if (data.newNote && data.newNote.trim() !== '') {
-        historySheet.appendRow([Utilities.getUuid(), data.clientId, 'ملاحظة جديدة', '-', data.newNote, data.changedBy, new Date()]);
-      }
-      createNotification('Admin', `تعديل/ملاحظة على العميل: ${rows[i][nameIdx]} بواسطة ${data.changedBy}`);
-      return { message: 'تم حفظ التعديلات والملاحظات بنجاح' };
-    }
-  }
-  throw new Error('العميل غير موجود');
-}
-
-function handleGetHistory(params) {
-  const sheet = ss.getSheetByName(TABS.HISTORY);
-  const rows = sheet.getDataRange().getValues();
-  const history = [];
-  const idIdx = 1; // ClientID is 2nd col
-  for (let i = 1; i < rows.length; i++) {
-    if (rows[i][idIdx] === params.clientId) {
-      history.push({ field: rows[i][2], oldVal: rows[i][3], newVal: rows[i][4], changedBy: rows[i][5], date: rows[i][6] });
-    }
-  }
-  return history.reverse(); // الأحدث أولاً
-}
-
-function handleGetMonthlyReport(params) {
-  const sheet = ss.getSheetByName(TABS.CLIENTS);
-  const rows = sheet.getDataRange().getValues();
-  const headers = rows[0];
-  const createdIdx = headers.indexOf('CreatedAt');
-  const branchIdx = headers.indexOf('PreferredBranch');
-  let reportData = [];
-  const branch = params.branch;
-  const month = parseInt(params.month) - 1; 
-  const year = parseInt(params.year);
-  
-  for (let i = 1; i < rows.length; i++) {
-    const createdAt = new Date(rows[i][createdIdx]);
-    if (createdAt.getMonth() === month && createdAt.getFullYear() === year) {
-      if (branch === 'All' || rows[i][branchIdx] === branch) {
-        let clientObj = {};
-        for (let j = 0; j < headers.length; j++) { clientObj[headers[j]] = rows[i][j]; }
-        reportData.push(clientObj);
-      }
-    }
-  }
-  return reportData;
-}
-
-function handleGetNotifs(params) {
-  const sheet = ss.getSheetByName(TABS.NOTIFICATIONS);
-  const rows = sheet.getDataRange().getValues();
-  const notifs = [];
-  const user = params.user;
-  const targetIdx = 1; // TargetUser
-  for (let i = 1; i < rows.length; i++) {
-    if (rows[i][targetIdx] === user || rows[i][targetIdx] === 'Admin') {
-      notifs.push({ id: rows[i][0], message: rows[i][2], isRead: rows[i][3], date: rows[i][4] });
-    }
-  }
-  return notifs.reverse().slice(0, 20); // الأحدث أولاً
-}
-
-function handleMarkNotifRead(data) {
-  const sheet = ss.getSheetByName(TABS.NOTIFICATIONS);
-  const rows = sheet.getDataRange().getValues();
-  const targetIdx = 1;
-  const readIdx = 3;
-  for (let i = 1; i < rows.length; i++) {
-    if (rows[i][targetIdx] === data.user && rows[i][readIdx] === false) {
-      sheet.getRange(i + 1, readIdx + 1).setValue(true);
-    }
-  }
-  return { message: 'تم التحديث' };
-}
-
-function handleSendChat(data) {
-  const sheet = ss.getSheetByName(TABS.CHAT);
-  sheet.appendRow([Utilities.getUuid(), data.sender, data.receiver, data.message, new Date()]);
-  return { message: 'تم الإرسال' };
-}
-
-function handleGetChat(params) {
-  const sheet = ss.getSheetByName(TABS.CHAT);
-  const rows = sheet.getDataRange().getValues();
-  const messages = [];
-  const user = params.user;
-  const target = params.target;
-  
-  for (let i = 1; i < rows.length; i++) {
-    const sender = rows[i][1];
-    const receiver = rows[i][2];
-    if (target === 'General') {
-      if (receiver === 'General') messages.push({ sender, message: rows[i][3], time: rows[i][4] });
-    } else {
-      if ((sender === user && receiver === target) || (sender === target && receiver === user)) {
-        messages.push({ sender, message: rows[i][3], time: rows[i][4] });
-      }
-    }
-  }
-  return messages.slice(-50);
-}
-
-// دوال المستخدمين
-function handleAddUser(data) {
-  const sheet = ss.getSheetByName(TABS.USERS);
-  const rows = sheet.getDataRange().getValues();
-  const userCol = getColIdx(sheet, 'Username');
-  for (let i = 1; i < rows.length; i++) { if (rows[i][userCol] === data.username) throw new Error('اسم المستخدم موجود مسبقا'); }
-  
-  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  const rowData = headers.map(h => {
-    if (h === 'ID') return Utilities.getUuid();
-    if (h === 'Username') return data.username;
-    if (h === 'PasswordHash') return computeSHA256(data.password);
-    if (h === 'Role') return data.role;
-    if (h === 'Branch') return data.branch || 'All';
-    if (h === 'CreatedAt') return new Date();
-    if (h === 'Email') return data.email || '';
-    if (h === 'JobTitle') return data.jobTitle || '';
-    if (h === 'ProfilePic') return data.profilePic || '';
-    if (h === 'WhatsApp') return data.whatsapp || '';
-    return '';
-  });
-  sheet.appendRow(rowData);
-  return { message: 'تم إضافة المستخدم بنجاح' };
-}
-
-function handleUpdateUser(data) {
-  const sheet = ss.getSheetByName(TABS.USERS);
-  const rows = sheet.getDataRange().getValues();
-  const headers = rows[0];
-  const idIdx = headers.indexOf('ID');
-  
-  for (let i = 1; i < rows.length; i++) {
-    if (rows[i][idIdx] === data.userId) {
-      const colMap = {
-        'Username': data.username, 'Role': data.role, 'Branch': data.branch || 'All',
-        'Email': data.email || '', 'JobTitle': data.jobTitle || '', 
-        'ProfilePic': data.profilePic || '', 'WhatsApp': data.whatsapp || ''
-      };
-      
-      for (const [key, value] of Object.entries(colMap)) {
-        const colIdx = headers.indexOf(key);
-        if (colIdx !== -1) sheet.getRange(i + 1, colIdx + 1).setValue(value);
-      }
-      
-      if (data.newPassword && data.newPassword.length > 0) {
-        const passIdx = headers.indexOf('PasswordHash');
-        sheet.getRange(i + 1, passIdx + 1).setValue(computeSHA256(data.newPassword));
-      }
-      return { message: 'تم تحديث بيانات المستخدم بنجاح' };
-    }
-  }
-  throw new Error('المستخدم غير موجود');
-}
-
-function handleGetUsers() {
-  const sheet = ss.getSheetByName(TABS.USERS);
-  const rows = sheet.getDataRange().getValues();
-  const headers = rows[0];
-  const users = [];
-  for (let i = 1; i < rows.length; i++) {
-    let userObj = {};
-    for (let j = 0; j < headers.length; j++) { userObj[headers[j]] = rows[i][j]; }
-    users.push(userObj); 
-  }
-  return users;
-}
-
-// دوال الإعدادات
-function handleGetSettings() {
-  const sheet = ss.getSheetByName(TABS.SETTINGS);
-  const rows = sheet.getDataRange().getValues();
-  const settings = { branches: [], specialties: [], specialists: [], sources: [] };
-  for (let i = 1; i < rows.length; i++) {
-    if (rows[i][0] === 'Branch') settings.branches.push(rows[i][1]);
-    else if (rows[i][0] === 'Specialty') settings.specialties.push(rows[i][1]);
-    else if (rows[i][0] === 'Specialist') settings.specialists.push(rows[i][1]);
-    else if (rows[i][0] === 'Source') settings.sources.push(rows[i][1]);
-  }
-  return settings;
-}
-
-function handleAddSetting(data) {
-  const sheet = ss.getSheetByName(TABS.SETTINGS);
-  const rows = sheet.getDataRange().getValues();
-  for (let i = 1; i < rows.length; i++) { if (rows[i][0] === data.type && rows[i][1] === data.value) throw new Error('هذا العنصر موجود مسبقاً'); }
-  sheet.appendRow([data.type, data.value]);
-  return { message: 'تمت الإضافة بنجاح' };
-}
-
-function handleUpdateSetting(data) {
-  const sheet = ss.getSheetByName(TABS.SETTINGS);
-  const rows = sheet.getDataRange().getValues();
-  let found = false;
-  for (let i = 1; i < rows.length; i++) {
-    if (rows[i][0] === data.type && rows[i][1] === data.oldValue) {
-      found = true;
-      for (let j = 1; j < rows.length; j++) { if (rows[j][0] === data.type && rows[j][1] === data.newValue) throw new Error('الاسم الجديد موجود مسبقاً'); }
-      sheet.getRange(i + 1, 2).setValue(data.newValue);
-      return { message: 'تم التعديل بنجاح' };
-    }
-  }
-  if (!found) throw new Error('العنصر غير موجود');
-}
+    <script src="app.js"></script>
+</body>
+</html>
