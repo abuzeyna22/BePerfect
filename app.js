@@ -1,4 +1,4 @@
-const API_URL = 'https://script.google.com/macros/s/AKfycbzQUS8J71BArPfFRFNT6qqmK3Ft1DeJs-rhGDLFtsDpmTRRR2LQFSrBVt3mmYziBeM9/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbyzHy_lUKI4pWjDO4dba8Vb_cRpLqTuNFoNmuPNagCGSv9w9qDnX4AytppqC69vDb5o/exec';
 
 function showToast(message, type = 'error') {
     const container = document.getElementById('toast-container');
@@ -182,7 +182,6 @@ if (document.querySelector('.dashboard-body')) {
             document.getElementById('detailBranch').innerHTML = globalSettings.branches.map(b => `<option value="${b}" ${b === client.PreferredBranch ? 'selected' : ''}>${b}</option>`).join('');
             document.getElementById('detailSpecialist').innerHTML = '<option value="">لا يوجد</option>' + globalSettings.specialists.map(s => `<option value="${s}" ${s === client.AssignedSpecialist ? 'selected' : ''}>${s}</option>`).join('');
 
-            // واتساب الذكي
             const phone = String(client.Phone).replace(/\D/g, '');
             const message = `مرحباً ${client.FullName}، نتواصل معكم من مركز Be Perfect للصحة النفسية.`;
             document.getElementById('whatsappBtn').href = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
@@ -284,13 +283,23 @@ if (document.querySelector('.dashboard-body')) {
         } catch (e) { console.error(e); }
     };
 
-    // ====== منطق لوحة الأدمن ======
+    // ====== منطق لوحة الأدمن (بالتبويبات) ======
     const adminBtn = document.getElementById('adminBtn');
     const adminModal = document.getElementById('adminModal');
     if (sessionStorage.getItem('userRole') === 'Admin') { adminBtn.style.display = 'flex'; }
     adminBtn.addEventListener('click', () => { adminModal.classList.add('active'); loadUsers(); });
     document.getElementById('closeAdminModal').addEventListener('click', () => adminModal.classList.remove('active'));
     document.getElementById('editSettingType').addEventListener('change', populateEditDropdown);
+
+    // منطق التبويبات
+    document.querySelectorAll('.admin-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
+            tab.classList.add('active');
+            document.getElementById(`tab-${tab.getAttribute('data-tab')}`).classList.add('active');
+        });
+    });
 
     async function loadUsers() {
         try {
@@ -413,5 +422,5 @@ if (document.querySelector('.dashboard-body')) {
     fetchSettings();
     fetchClients(currentPage, searchQuery);
     fetchNotifs();
-    setInterval(fetchNotifs, 30000); // تحديث التنبيهات كل 30 ثانية
+    setInterval(fetchNotifs, 30000); 
 }
