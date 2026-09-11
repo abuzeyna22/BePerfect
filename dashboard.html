@@ -14,6 +14,13 @@
         .notif-item { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 14px; }
         .notif-item.unread { background: rgba(95, 211, 110, 0.1); }
         .btn-whatsapp { background: linear-gradient(to right, #25D366, #128C7E); color: white; padding: 10px 15px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block; text-align: center; margin-top: 10px; }
+        
+        /* تنظيم واجهة الأدمن */
+        .admin-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 10px; }
+        .admin-tab { background: transparent; border: none; color: #fff; opacity: 0.5; cursor: pointer; padding: 8px 16px; font-size: 14px; font-weight: 600; border-radius: 8px; transition: all 0.3s; }
+        .admin-tab.active, .admin-tab:hover { opacity: 1; background: rgba(255,255,255,0.1); }
+        .admin-tab-content { display: none; }
+        .admin-tab-content.active { display: block; }
     </style>
 </head>
 <body class="dashboard-body">
@@ -128,57 +135,71 @@
         </div>
     </div>
 
-    <!-- نافذة إعدادات الأدمن -->
+    <!-- نافذة إعدادات الأدمن (مقسمة بتبويبات) -->
     <div id="adminModal" class="modal-overlay">
         <div class="glass-card modal-box" style="max-width: 800px;">
             <div class="modal-header"><h3>إعدادات النظام (للأدمن فقط)</h3><button class="close-modal" id="closeAdminModal">&times;</button></div>
-            <h4 style="margin-bottom:15px; color:#ff9a44;">1. إضافة / تعديل مستخدم</h4>
-            <form id="userManagementForm" class="modal-form">
-                <div class="form-grid">
-                    <input type="hidden" id="editUserId">
-                    <div class="input-group"><label>اسم المستخدم *</label><input type="text" id="newUsername" required></div>
-                    <div class="input-group"><label>كلمة المرور (اتركها فارغة عند التعديل إذا لا تريد تغييرها)</label><input type="text" id="newPassword" placeholder="********"></div>
-                    <div class="input-group"><label>الوظيفة (Job Title)</label><input type="text" id="newJobTitle" placeholder="مثال: سكرتير فرع سموحة"></div>
-                    <div class="input-group"><label>البريد الإلكتروني</label><input type="email" id="newEmail" placeholder="user@beperfect.com"></div>
-                    <div class="input-group"><label>رقم واتساب (للتنبيهات)</label><input type="text" id="newWhatsApp" placeholder="2010xxxxxxx"></div>
-                    <div class="input-group"><label>رابط الصورة</label><input type="text" id="newProfilePic" placeholder="https://..."></div>
-                    <div class="input-group"><label>الصلاحية *</label><select id="newRole"><option value="Secretary">سكرتير</option><option value="Moderator">مودريتور</option><option value="Admin">أدمن</option></select></div>
-                    <div class="input-group"><label>الفرع</label><input type="text" id="newUserBranch" placeholder="All لكل الفروع"></div>
-                </div>
-                <div style="display:flex; gap: 10px;">
-                    <button type="submit" id="saveUserBtn" class="btn-primary">حفظ المستخدم</button>
-                    <button type="button" id="editUserBtn" class="btn-primary" style="background: linear-gradient(to right, #6a11cb, #2575fc);">جلب للتعديل</button>
-                </div>
-            </form>
-            <div class="table-container" style="margin-top: 15px; max-height: 150px; overflow-y: auto;">
-                <table class="data-table"><thead><tr><th>الاسم</th><th>الوظيفة</th><th>الصلاحية</th><th></th></tr></thead><tbody id="usersTableBody"></tbody></table>
+            
+            <div class="admin-tabs">
+                <button class="admin-tab active" data-tab="users">المستخدمين</button>
+                <button class="admin-tab" data-tab="settings">الإعدادات</button>
+                <button class="admin-tab" data-tab="import">الاستيراد</button>
             </div>
-            <hr style="margin: 20px 0; border-color: rgba(255,255,255,0.2);">
-            <h4 style="margin-bottom:15px; color:#ff9a44;">2. إضافة (فرع / تخصص / أخصائي / مصدر)</h4>
-            <form id="addSettingForm" class="modal-form">
-                <div class="form-grid">
-                    <div class="input-group"><label>النوع *</label><select id="settingType"><option value="Branch">فرع</option><option value="Specialty">تخصص</option><option value="Specialist">أخصائي</option><option value="Source">مصدر</option></select></div>
-                    <div class="input-group"><label>الاسم *</label><input type="text" id="settingValue" required placeholder="اكتب الاسم الجديد"></div>
+
+            <div id="tab-users" class="admin-tab-content active">
+                <h4 style="margin-bottom:15px; color:#ff9a44;">1. إضافة / تعديل مستخدم</h4>
+                <form id="userManagementForm" class="modal-form">
+                    <div class="form-grid">
+                        <input type="hidden" id="editUserId">
+                        <div class="input-group"><label>اسم المستخدم *</label><input type="text" id="newUsername" required></div>
+                        <div class="input-group"><label>كلمة المرور (اتركها فارغة عند التعديل)</label><input type="text" id="newPassword" placeholder="********"></div>
+                        <div class="input-group"><label>الوظيفة (Job Title)</label><input type="text" id="newJobTitle" placeholder="مثال: سكرتير فرع سموحة"></div>
+                        <div class="input-group"><label>البريد الإلكتروني</label><input type="email" id="newEmail" placeholder="user@beperfect.com"></div>
+                        <div class="input-group"><label>رقم واتساب</label><input type="text" id="newWhatsApp" placeholder="2010xxxxxxx"></div>
+                        <div class="input-group"><label>رابط الصورة</label><input type="text" id="newProfilePic" placeholder="https://..."></div>
+                        <div class="input-group"><label>الصلاحية *</label><select id="newRole"><option value="Secretary">سكرتير</option><option value="Moderator">مودريتور</option><option value="Admin">أدمن</option></select></div>
+                        <div class="input-group"><label>الفرع</label><input type="text" id="newUserBranch" placeholder="All لكل الفروع"></div>
+                    </div>
+                    <div style="display:flex; gap: 10px;">
+                        <button type="submit" id="saveUserBtn" class="btn-primary">حفظ المستخدم</button>
+                        <button type="button" id="editUserBtn" class="btn-primary" style="background: linear-gradient(to right, #6a11cb, #2575fc);">جلب للتعديل</button>
+                    </div>
+                </form>
+                <div class="table-container" style="margin-top: 15px; max-height: 150px; overflow-y: auto;">
+                    <table class="data-table"><thead><tr><th>الاسم</th><th>الوظيفة</th><th>الصلاحية</th><th></th></tr></thead><tbody id="usersTableBody"></tbody></table>
                 </div>
-                <button type="submit" class="btn-primary">حفظ الإعداد</button>
-            </form>
-            <hr style="margin: 20px 0; border-color: rgba(255,255,255,0.2);"/>
-            <h4 style="margin-bottom:15px; color:#ff9a44;">3. تعديل (فرع / تخصص / أخصائي / مصدر)</h4>
-            <form id="editSettingForm" class="modal-form">
-                <div class="form-grid">
-                    <div class="input-group"><label>النوع *</label><select id="editSettingType"><option value="Branch">فرع</option><option value="Specialty">تخصص</option><option value="Specialist">أخصائي</option><option value="Source">مصدر</option></select></div>
-                    <div class="input-group"><label>اختر العنصر الحالي *</label><select id="editOldValue"></select></div>
-                    <div class="input-group full-width"><label>الاسم الجديد *</label><input type="text" id="editNewValue" required placeholder="اكتب الاسم الجديد هنا"></div>
-                </div>
-                <button type="submit" class="btn-primary">تعديل الاسم</button>
-            </form>
-            <hr style="margin: 20px 0; border-color: rgba(255,255,255,0.2);"/>
-            <h4 style="margin-bottom:15px; color:#ff9a44;">4. استيراد بيانات عملاء قدامى (CSV)</h4>
-            <form id="importClientsForm" class="modal-form">
-                <div class="input-group full-width"><label>الفرع الافتراضي *</label><select id="importBranch" required></select></div>
-                <div class="input-group full-width"><label>اختر ملف CSV *</label><input type="file" id="importFile" accept=".csv" required style="width: 100%; padding: 10px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; color: #fff;"></div>
-                <button type="submit" id="importBtn" class="btn-primary"><span class="btn-text">رفع واستيراد الملف</span><div class="loader" id="importLoader"></div></button>
-            </form>
+            </div>
+
+            <div id="tab-settings" class="admin-tab-content">
+                <h4 style="margin-bottom:15px; color:#ff9a44;">2. إضافة (فرع / تخصص / أخصائي / مصدر)</h4>
+                <form id="addSettingForm" class="modal-form">
+                    <div class="form-grid">
+                        <div class="input-group"><label>النوع *</label><select id="settingType"><option value="Branch">فرع</option><option value="Specialty">تخصص</option><option value="Specialist">أخصائي</option><option value="Source">مصدر</option></select></div>
+                        <div class="input-group"><label>الاسم *</label><input type="text" id="settingValue" required placeholder="اكتب الاسم الجديد"></div>
+                    </div>
+                    <button type="submit" class="btn-primary">حفظ الإعداد</button>
+                </form>
+                <hr style="margin: 20px 0; border-color: rgba(255,255,255,0.2);"/>
+                <h4 style="margin-bottom:15px; color:#ff9a44;">3. تعديل (فرع / تخصص / أخصائي / مصدر)</h4>
+                <form id="editSettingForm" class="modal-form">
+                    <div class="form-grid">
+                        <div class="input-group"><label>النوع *</label><select id="editSettingType"><option value="Branch">فرع</option><option value="Specialty">تخصص</option><option value="Specialist">أخصائي</option><option value="Source">مصدر</option></select></div>
+                        <div class="input-group"><label>اختر العنصر الحالي *</label><select id="editOldValue"></select></div>
+                        <div class="input-group full-width"><label>الاسم الجديد *</label><input type="text" id="editNewValue" required placeholder="اكتب الاسم الجديد هنا"></div>
+                    </div>
+                    <button type="submit" class="btn-primary">تعديل الاسم</button>
+                </form>
+            </div>
+
+            <div id="tab-import" class="admin-tab-content">
+                <h4 style="margin-bottom:15px; color:#ff9a44;">4. استيراد بيانات عملاء قدامى (CSV)</h4>
+                <form id="importClientsForm" class="modal-form">
+                    <div class="input-group full-width"><label>الفرع الافتراضي *</label><select id="importBranch" required></select></div>
+                    <div class="input-group full-width"><label>اختر ملف CSV *</label><input type="file" id="importFile" accept=".csv" required style="width: 100%; padding: 10px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; color: #fff;"></div>
+                    <button type="submit" id="importBtn" class="btn-primary"><span class="btn-text">رفع واستيراد الملف</span><div class="loader" id="importLoader"></div></button>
+                </form>
+            </div>
+
         </div>
     </div>
 
