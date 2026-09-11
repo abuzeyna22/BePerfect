@@ -1,4 +1,4 @@
-const API_URL = 'https://script.google.com/macros/s/AKfycbzp2dhNwI9uh28IllQNMENEFDwWGuHNUF4_MQVbTXoL7JUxuMDf_dMDdXQ0T-ZHQz0/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxxQofE4nyBywqJB06LhmlBssjtjqxdpIbmIYVcHeb5XaxURYt5Kb82-HXCsiH1em6I/exec';
 
 function showToast(message, type = 'error') {
     const container = document.getElementById('toast-container');
@@ -15,26 +15,20 @@ function checkAuth() {
     return token;
 }
 
-// دالة تصدير CSV (Pure JS)
 function exportToCSV(data, filename) {
     if (data.length === 0) return showToast('لا توجد بيانات في هذا التقرير', 'warning');
     const headers = Object.keys(data[0]);
-    const csvRows = [];
-    csvRows.push(headers.join(','));
+    const csvRows = []; csvRows.push(headers.join(','));
     data.forEach(row => {
         const values = headers.map(header => {
             let val = row[header] === null || row[header] === undefined ? '' : String(row[header]);
-            val = val.replace(/"/g, '""');
-            return `"${val}"`;
+            val = val.replace(/"/g, '""'); return `"${val}"`;
         });
         csvRows.push(values.join(','));
     });
-    const csvString = "\uFEFF" + csvRows.join('\n'); // BOM for Arabic Excel support
+    const csvString = "\uFEFF" + csvRows.join('\n');
     const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = filename;
-    link.click();
+    const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = filename; link.click();
 }
 
 if (document.getElementById('loginForm')) {
@@ -48,10 +42,7 @@ if (document.getElementById('loginForm')) {
         if (!username || !password) { return showToast('يرجى إدخال البيانات', 'warning'); }
         btnText.style.display = 'none'; loader.style.display = 'block'; loginBtn.disabled = true;
         try {
-            const response = await fetch(API_URL, {
-                method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: 'login', username, password })
-            });
+            const response = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'login', username, password }) });
             const data = await response.json();
             if (data.success) {
                 showToast('تم تسجيل الدخول بنجاح!', 'success');
@@ -79,10 +70,7 @@ if (document.querySelector('.dashboard-body')) {
             const data = await response.json();
             if (data.success) {
                 globalSettings = data.data;
-                populateDropdowns();
-                populateEditDropdown();
-                populateImportDropdown();
-                populateReportDropdown();
+                populateDropdowns(); populateEditDropdown(); populateImportDropdown(); populateReportDropdown();
             }
         } catch (error) { console.error('Settings Error:', error); }
     }
@@ -99,13 +87,8 @@ if (document.querySelector('.dashboard-body')) {
         document.getElementById('editOldValue').innerHTML = items.map(item => `<option value="${item}">${item}</option>`).join('');
     }
 
-    function populateImportDropdown() {
-        document.getElementById('importBranch').innerHTML = globalSettings.branches.map(b => `<option value="${b}">${b}</option>`).join('');
-    }
-
-    function populateReportDropdown() {
-        document.getElementById('reportBranch').innerHTML = '<option value="All">كل الفروع</option>' + globalSettings.branches.map(b => `<option value="${b}">${b}</option>`).join('');
-    }
+    function populateImportDropdown() { document.getElementById('importBranch').innerHTML = globalSettings.branches.map(b => `<option value="${b}">${b}</option>`).join(''); }
+    function populateReportDropdown() { document.getElementById('reportBranch').innerHTML = '<option value="All">كل الفروع</option>' + globalSettings.branches.map(b => `<option value="${b}">${b}</option>`).join(''); }
 
     async function fetchClients(page = 1, search = '') {
         try {
@@ -174,7 +157,7 @@ if (document.querySelector('.dashboard-body')) {
         try {
             const response = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(clientData) });
             const data = await response.json();
-            if (data.success) { showToast('تم إضافة العميل بنجاح!', 'success'); document.getElementById('addClientForm').reset(); modal.classList.remove('active'); fetchClients(currentPage, searchQuery); }
+            if (data.success) { showToast('تم إضافة العميل بنجاح!', 'success'); document.getElementById('addClientForm').reset(); modal.classList.remove('active'); fetchClients(currentPage, searchQuery); fetchNotifs(); }
             else { showToast(data.error, 'error'); }
         } catch (error) { showToast('فشل الاتصال بالخادم', 'error'); }
         finally { btnText.style.display = 'inline'; loader.style.display = 'none'; submitBtn.disabled = false; }
@@ -182,7 +165,7 @@ if (document.querySelector('.dashboard-body')) {
 
     document.getElementById('logoutBtn').addEventListener('click', () => { sessionStorage.clear(); window.location.href = 'index.html'; });
 
-    // كارت تفاصيل العميل
+    // ====== كارت تفاصيل العميل ======
     const detailsModal = document.getElementById('clientDetailsModal');
     document.getElementById('closeDetailsModal').addEventListener('click', () => detailsModal.classList.remove('active'));
 
@@ -198,6 +181,11 @@ if (document.querySelector('.dashboard-body')) {
             document.getElementById('detailPhone').value = client.Phone;
             document.getElementById('detailBranch').innerHTML = globalSettings.branches.map(b => `<option value="${b}" ${b === client.PreferredBranch ? 'selected' : ''}>${b}</option>`).join('');
             document.getElementById('detailSpecialist').innerHTML = '<option value="">لا يوجد</option>' + globalSettings.specialists.map(s => `<option value="${s}" ${s === client.AssignedSpecialist ? 'selected' : ''}>${s}</option>`).join('');
+
+            // واتساب الذكي
+            const phone = String(client.Phone).replace(/\D/g, '');
+            const message = `مرحباً ${client.FullName}، نتواصل معكم من مركز Be Perfect للصحة النفسية.`;
+            document.getElementById('whatsappBtn').href = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 
             const resHist = await fetch(`${API_URL}?action=getHistory&token=${token}&clientId=${clientId}`);
             const dataHist = await resHist.json();
@@ -222,7 +210,7 @@ if (document.querySelector('.dashboard-body')) {
         try {
             const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(data) });
             const result = await res.json();
-            if (result.success) { showToast(result.data.message, 'success'); openClientDetails(currentDetailClientId); fetchClients(currentPage, searchQuery); } 
+            if (result.success) { showToast(result.data.message, 'success'); openClientDetails(currentDetailClientId); fetchClients(currentPage, searchQuery); fetchNotifs(); } 
             else { showToast(result.error, 'error'); }
         } catch (err) { showToast('فشل الاتصال', 'error'); }
     });
@@ -240,7 +228,6 @@ if (document.querySelector('.dashboard-body')) {
         const month = document.getElementById('reportMonth').value;
         const year = document.getElementById('reportYear').value;
         const branch = document.getElementById('reportBranch').value;
-
         btnText.style.display = 'none'; loader.style.display = 'block'; btn.disabled = true;
         try {
             const url = `${API_URL}?action=getMonthlyReport&token=${token}&month=${month}&year=${year}&branch=${encodeURIComponent(branch)}`;
@@ -254,6 +241,48 @@ if (document.querySelector('.dashboard-body')) {
         } catch (err) { showToast('فشل生成 التقرير', 'error'); }
         finally { btnText.style.display = 'inline'; loader.style.display = 'none'; btn.disabled = false; }
     });
+
+    // ====== منطق التنبيهات (Notifications) ======
+    async function fetchNotifs() {
+        try {
+            const role = sessionStorage.getItem('userRole');
+            const res = await fetch(`${API_URL}?action=getNotifs&token=${token}&role=${role}`);
+            const data = await res.json();
+            if (data.success) {
+                const unread = data.data.filter(n => !n.isRead).length;
+                const badge = document.getElementById('notifBadge');
+                badge.innerText = unread;
+                badge.style.display = unread > 0 ? 'flex' : 'none';
+                
+                const list = document.getElementById('notifList');
+                list.innerHTML = '';
+                if (data.data.length === 0) {
+                    list.innerHTML = '<div class="notif-item" style="text-align:center; opacity:0.7;">لا توجد تنبيهات</div>';
+                } else {
+                    data.data.forEach(n => {
+                        const date = new Date(n.date).toLocaleString('ar-EG');
+                        list.innerHTML += `<div class="notif-item ${!n.isRead ? 'unread' : ''}">
+                            <p style="margin-bottom:5px;">${n.message}</p>
+                            <small style="font-size: 11px; opacity: 0.7;">${date}</small>
+                        </div>`;
+                    });
+                }
+            }
+        } catch (e) { console.error('Notif Error', e); }
+    }
+
+    window.toggleNotifs = function() {
+        const dropdown = document.getElementById('notifDropdown');
+        dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+    };
+
+    window.markNotifsRead = async function() {
+        try {
+            const role = sessionStorage.getItem('userRole');
+            await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'markNotifRead', token, role }) });
+            fetchNotifs();
+        } catch (e) { console.error(e); }
+    };
 
     // ====== منطق لوحة الأدمن ======
     const adminBtn = document.getElementById('adminBtn');
@@ -291,6 +320,7 @@ if (document.querySelector('.dashboard-body')) {
             document.getElementById('newPassword').value = '';
             document.getElementById('newJobTitle').value = user.jobTitle;
             document.getElementById('newEmail').value = user.email;
+            document.getElementById('newWhatsApp').value = user.whatsapp;
             document.getElementById('newProfilePic').value = user.profilePic;
             document.getElementById('newRole').value = user.role;
             document.getElementById('newUserBranch').value = user.branch;
@@ -307,6 +337,7 @@ if (document.querySelector('.dashboard-body')) {
             password: document.getElementById('newPassword').value,
             jobTitle: document.getElementById('newJobTitle').value,
             email: document.getElementById('newEmail').value,
+            whatsapp: document.getElementById('newWhatsApp').value,
             profilePic: document.getElementById('newProfilePic').value,
             role: document.getElementById('newRole').value,
             branch: document.getElementById('newUserBranch').value || 'All'
@@ -314,11 +345,8 @@ if (document.querySelector('.dashboard-body')) {
         try {
             const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(data) });
             const result = await res.json();
-            if (result.success) {
-                showToast(result.data.message, 'success');
-                document.getElementById('userManagementForm').reset();
-                loadUsers();
-            } else { showToast(result.error, 'error'); }
+            if (result.success) { showToast(result.data.message, 'success'); document.getElementById('userManagementForm').reset(); loadUsers(); } 
+            else { showToast(result.error, 'error'); }
         } catch (err) { showToast('فشل الاتصال', 'error'); }
     });
 
@@ -375,12 +403,15 @@ if (document.querySelector('.dashboard-body')) {
                 body: JSON.stringify({ action: 'bulkAddClients', token, branch, clients: clientsArray, createdBy: sessionStorage.getItem('username') })
             });
             const result = await res.json();
-            if (result.success) { showToast(result.data.message, 'success'); document.getElementById('importClientsForm').reset(); fetchClients(currentPage, searchQuery); } 
+            if (result.success) { showToast(result.data.message, 'success'); document.getElementById('importClientsForm').reset(); fetchClients(currentPage, searchQuery); fetchNotifs(); } 
             else { showToast(result.error, 'error'); }
         } catch (err) { showToast('فشل قراءة الملف', 'error'); }
         finally { btnText.style.display = 'inline'; loader.style.display = 'none'; importBtn.disabled = false; }
     });
 
+    // بدء التشغيل
     fetchSettings();
     fetchClients(currentPage, searchQuery);
+    fetchNotifs();
+    setInterval(fetchNotifs, 30000); // تحديث التنبيهات كل 30 ثانية
 }
