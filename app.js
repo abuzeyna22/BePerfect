@@ -1,4 +1,4 @@
-const API_URL = 'https://script.google.com/macros/s/AKfycbz5NTRQmNbBwJwa0Dgk-jI6CzFl6CHyHRd9RwHOxGWuRivz1zPO8I8LoiCavtfwn89z/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxECxm06puNLLt-Tou7mDv0uLCZXl0wSgFN6ZB4ei2mZwmXu-5txLudtuPym8bxDbv5/exec';
 
 function showToast(message, type = 'error') {
     const container = document.getElementById('toast-container');
@@ -65,6 +65,7 @@ if (document.querySelector('.dashboard-body')) {
     let currentPage = 1, searchQuery = '', currentDetailClientId = '';
     let globalSettings = { branches: [], specialties: [], specialists: [], sources: [] };
     let chatPolling;
+    let allUsersForMention = []; // مصفوفة مستخدمي المنشن
 
     async function fetchSettings() {
         try {
@@ -183,7 +184,7 @@ if (document.querySelector('.dashboard-body')) {
             document.getElementById('detailPhone').value = client.Phone;
             document.getElementById('detailBranch').innerHTML = globalSettings.branches.map(b => `<option value="${b}" ${b === client.PreferredBranch ? 'selected' : ''}>${b}</option>`).join('');
             document.getElementById('detailSpecialist').innerHTML = '<option value="">لا يوجد</option>' + globalSettings.specialists.map(s => `<option value="${s}" ${s === client.AssignedSpecialist ? 'selected' : ''}>${s}</option>`).join('');
-            document.getElementById('newNoteText').value = ''; // مسح حقل الملاحظة عند الفتح
+            document.getElementById('newNoteText').value = ''; 
 
             const phone = String(client.Phone).replace(/\D/g, '');
             const message = `مرحباً ${client.FullName}، نتواصل معكم من مركز Be Perfect للصحة النفسية.`;
@@ -215,7 +216,7 @@ if (document.querySelector('.dashboard-body')) {
             action: 'updateClient', token, clientId: currentDetailClientId,
             branch: document.getElementById('detailBranch').value, 
             specialist: document.getElementById('detailSpecialist').value,
-            newNote: document.getElementById('newNoteText').value, // إرسال الملاحظة الجديدة
+            newNote: document.getElementById('newNoteText').value, 
             changedBy: currentUser
         };
         try {
@@ -223,8 +224,8 @@ if (document.querySelector('.dashboard-body')) {
             const result = await res.json();
             if (result.success) { 
                 showToast(result.data.message, 'success'); 
-                document.getElementById('newNoteText').value = ''; // مسح الحقل بعد الحفظ
-                await fetchHistory(currentDetailClientId); // تحديث السجل فوراً
+                document.getElementById('newNoteText').value = ''; 
+                await fetchHistory(currentDetailClientId); 
                 fetchClients(currentPage, searchQuery); 
                 fetchNotifs(); 
             } else { showToast(result.error, 'error'); }
@@ -298,7 +299,7 @@ if (document.querySelector('.dashboard-body')) {
         } catch (e) { console.error(e); }
     };
 
-    // ====== منطق الشات ======
+    // ====== منطق الشات والمنشن ======
     const chatModal = document.getElementById('chatModal');
     document.getElementById('chatBtn').addEventListener('click', async () => {
         chatModal.classList.add('active');
@@ -307,10 +308,12 @@ if (document.querySelector('.dashboard-body')) {
             const data = await res.json();
             const select = document.getElementById('chatTarget');
             select.innerHTML = '<option value="General">شات عام (للجميع)</option>';
+            allUsersForMention = []; // مسح القائمة
             if (data.success) {
                 data.data.forEach(u => {
                     if (u.Username !== currentUser) {
                         select.innerHTML += `<option value="${u.Username}">${u.Username} (${u.JobTitle || 'موظف'})</option>`;
+                        allUsersForMention.push(u); // تخزين المستخدمين للمنشن
                     }
                 });
             }
@@ -332,9 +335,11 @@ if (document.querySelector('.dashboard-body')) {
                 data.data.forEach(msg => {
                     const isMe = msg.sender === currentUser;
                     const time = new Date(msg.time).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+                    // تلوين المنشن داخل الرسالة
+                    let msgText = msg.message.replace(/@(\w+)/g, '<span style="color:#ff9a44; font-weight:bold;">@$1</span>');
                     box.innerHTML += `<div class="chat-msg ${isMe ? 'me' : 'other'}">
                         <div style="font-size: 11px; opacity: 0.8; margin-bottom: 4px;">${isMe ? 'أنت' : msg.sender} - ${time}</div>
-                        ${msg.message}
+                        ${msgText}
                     </div>`;
                 });
                 box.scrollTop = box.scrollHeight;
@@ -348,6 +353,37 @@ if (document.querySelector('.dashboard-body')) {
         chatPolling = setInterval(fetchChat, 3000);
     }
 
+    // منطق المنشن @
+    const chatInput = document.getElementById('chatInput');
+    const mentionDropdown = document.getElementById('mentionDropdown');
+    let mentionActive = false;
+
+    chatInput.addEventListener('input', (e) => {
+        const val = e.target.value;
+        const lastChar = val[val.length - 1];
+        
+        if (lastChar === '@' && !mentionActive) {
+            mentionActive = true;
+            mentionDropdown.innerHTML = '';
+            allUsersForMention.forEach(u => {
+                const div = document.createElement('div');
+                div.innerText = u.Username;
+                div.className = 'mention-item';
+                div.onclick = () => {
+                    chatInput.value = val.substring(0, val.length - 1) + '@' + u.Username + ' ';
+                    mentionDropdown.style.display = 'none';
+                    mentionActive = false;
+                    chatInput.focus();
+                };
+                mentionDropdown.appendChild(div);
+            });
+            mentionDropdown.style.display = 'block';
+        } else if (mentionActive && (lastChar === ' ' || val.length === 0)) {
+            mentionDropdown.style.display = 'none';
+            mentionActive = false;
+        }
+    });
+
     document.getElementById('chatForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const input = document.getElementById('chatInput');
@@ -357,7 +393,9 @@ if (document.querySelector('.dashboard-body')) {
         try {
             await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'sendChat', token, sender: currentUser, receiver: target, message: msg }) });
             input.value = '';
+            mentionDropdown.style.display = 'none';
             fetchChat();
+            fetchNotifs(); // تحديث التنبيهات لأنك ممكن تكون عملت منشن
         } catch (err) { showToast('فشل إرسال الرسالة', 'error'); }
     });
 
