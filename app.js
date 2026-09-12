@@ -1,5 +1,5 @@
-const API_URL = 'https://script.google.com/macros/s/AKfycbyCJ8s26akxXPPB4IhOF4xd7w-v3jrL23_OkFsX5-Qec3oPmmRwyt3dw2MH2-O2hdsF/exec';
-const IMGBB_API_KEY = '71307118640265da76172e90445b208b'; // مفتاح ImgBB
+const API_URL = 'https://script.google.com/macros/s/AKfycbxKwM31VLM-LpoEIvyc0vh3T2iLDPTirFM3C3hdq1Mtd7eMw5if2nWZ2cm6KvXxAQe9/exec';
+const IMGBB_API_KEY = '71307118640265da76172e90445b208b';
 
 function showToast(message, type = 'error') {
     const container = document.getElementById('toast-container');
@@ -42,21 +42,15 @@ function parsePhones(phoneString) {
     });
 }
 
-// دالة رفع الصورة لـ ImgBB
 async function uploadImageToImgBB(file) {
     const formData = new FormData();
     formData.append('image', file);
     try {
-        const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
-            method: 'POST',
-            body: formData
-        });
+        const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: 'POST', body: formData });
         const data = await res.json();
         if (data.success) return data.data.url;
         throw new Error('فشل رفع الصورة');
-    } catch (err) {
-        throw new Error('فشل الاتصال بمزود الصور');
-    }
+    } catch (err) { throw new Error('فشل الاتصال بمزود الصور'); }
 }
 
 if (document.getElementById('loginForm')) {
@@ -112,15 +106,14 @@ if (document.querySelector('.dashboard-body')) {
         document.getElementById('detailBranch').innerHTML = globalSettings.branches.map(b => `<option value="${b}">${b}</option>`).join('');
         document.getElementById('detailSpecialist').innerHTML = '<option value="">لا يوجد</option>' + globalSettings.specialists.map(s => `<option value="${s}">${s}</option>`).join('');
         document.getElementById('appSpecialist').innerHTML = '<option value="">اختر أخصائي</option>' + globalSettings.specialists.map(s => `<option value="${s}">${s}</option>`).join('');
+        document.getElementById('newAppSpecialist').innerHTML = '<option value="">لا يوجد</option>' + globalSettings.specialists.map(s => `<option value="${s}">${s}</option>`).join('');
         document.getElementById('referralType').innerHTML = '<option value="صديق">صديق</option><option value="جوجل ماب">جوجل ماب</option><option value="لافتة">لافتة</option><option value="عادة">عادة</option>';
         
-        // تعبئة فلاتر البحث
         document.getElementById('filterBranch').innerHTML = '<option value="All">كل الفروع</option>' + globalSettings.branches.map(b => `<option value="${b}">${b}</option>`).join('');
         document.getElementById('filterSource').innerHTML = '<option value="All">كل المصادر</option>' + globalSettings.sources.map(s => `<option value="${s}">${s}</option>`).join('');
         document.getElementById('filterSpecialty').innerHTML = '<option value="All">كل التخصصات</option>' + globalSettings.specialties.map(s => `<option value="${s}">${s}</option>`).join('');
         document.getElementById('filterSpecialist').innerHTML = '<option value="All">كل الأخصائيين</option>' + globalSettings.specialists.map(s => `<option value="${s}">${s}</option>`).join('');
         
-        // تعبئة قائمة فرع الموظف (Add & Edit)
         const userBranches = '<option value="All">All لكل الفروع</option>' + globalSettings.branches.map(b => `<option value="${b}">${b}</option>`).join('');
         document.getElementById('addUserBranch').innerHTML = userBranches;
         document.getElementById('editUserBranch').innerHTML = userBranches;
@@ -268,8 +261,39 @@ if (document.querySelector('.dashboard-body')) {
         try {
             const response = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(clientData) });
             const data = await response.json();
-            if (data.success) { showToast('تم إضافة العميل بنجاح!', 'success'); document.getElementById('addClientForm').reset(); modal.classList.remove('active'); fetchClients(currentPage, searchQuery); fetchNotifs(); }
-            else { showToast(data.error, 'error'); }
+            if (data.success) { 
+                showToast('تم إضافة العميل بنجاح!', 'success'); 
+                
+                // حجز الموعد الأول إذا تم إدخاله
+                const newAppDate = document.getElementById('newAppDate').value;
+                const newAppTime = document.getElementById('newAppTime').value;
+                const newAppSpecialist = document.getElementById('newAppSpecialist').value;
+                const newClientId = data.data.clientId; // الكود الذي أرجعه الخادم
+                
+                if (newAppDate && newAppTime && newClientId) {
+                    try {
+                        await fetch(API_URL, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                            body: JSON.stringify({
+                                action: 'addAppointment', token,
+                                clientId: newClientId,
+                                date: newAppDate,
+                                time: newAppTime,
+                                branch: clientData.preferredBranch,
+                                specialist: newAppSpecialist,
+                                createdBy: currentUser
+                            })
+                        });
+                        showToast('تم حجز الموعد الأول بنجاح', 'success');
+                    } catch (e) { console.error('Appointment Error', e); }
+                }
+                
+                document.getElementById('addClientForm').reset(); 
+                modal.classList.remove('active'); 
+                fetchClients(currentPage, searchQuery); 
+                fetchNotifs();
+            } else { showToast(data.error, 'error'); }
         } catch (error) { showToast('فشل الاتصال بالخادم', 'error'); }
         finally { btnText.style.display = 'inline'; loader.style.display = 'none'; submitBtn.disabled = false; }
     });
@@ -506,7 +530,9 @@ if (document.querySelector('.dashboard-body')) {
             if (data.success) {
                 data.data.forEach(u => {
                     if (u.Username !== currentUser) {
-                        select.innerHTML += `<option value="${u.Username}">${u.Username} (${u.JobTitle || 'موظف'})</option>`;
+                        const roleMap = { 'Admin': 'أدمن', 'Moderator': 'مودريتور', 'Secretary': 'سكرتارية' };
+                        const displayRole = roleMap[u.Role] || 'موظف';
+                        select.innerHTML += `<option value="${u.Username}">${u.Username} (${u.JobTitle || displayRole})</option>`;
                         allUsersForMention.push(u);
                     }
                 });
@@ -612,7 +638,9 @@ if (document.querySelector('.dashboard-body')) {
             allUsersForEdit = [];
             if (data.success) {
                 data.data.forEach(u => {
-                    select.innerHTML += `<option value="${u.ID}">${u.Username} (${u.JobTitle || 'موظف'})</option>`;
+                    const roleMap = { 'Admin': 'أدمن', 'Moderator': 'مودريتور', 'Secretary': 'سكرتارية' };
+                    const displayRole = roleMap[u.Role] || 'موظف';
+                    select.innerHTML += `<option value="${u.ID}">${u.Username} (${u.JobTitle || displayRole})</option>`;
                     allUsersForEdit.push(u);
                 });
             }
@@ -637,7 +665,6 @@ if (document.querySelector('.dashboard-body')) {
         } else { document.getElementById('editUserForm').reset(); }
     });
 
-    // منطق رفع الصور
     document.getElementById('addProfilePicFile').addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (!file) return;
