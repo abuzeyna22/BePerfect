@@ -59,6 +59,7 @@
         </div>
         <div class="topbar-left">
             <button id="chatBtn" class="btn-primary" style="background: linear-gradient(to right, #8e2de2, #4a00e0);">💬 الشات</button>
+            <button id="ticketBtn" class="btn-primary" style="background: linear-gradient(to right, #f12711, #f5af19);">🛟 الدعم</button>
             <button id="reportBtn" class="btn-primary" style="background: linear-gradient(to right, #6a11cb, #2575fc);">📊 تقارير</button>
             
             <div class="notif-container">
@@ -113,7 +114,7 @@
         </div>
     </main>
 
-    <!-- نافذة إضافة عميل (محدثة بحجز الموعد) -->
+    <!-- نافذة إضافة عميل -->
     <div id="clientModal" class="modal-overlay">
         <div class="glass-card modal-box">
             <div class="modal-header"><h3>تسجيل عميل جديد</h3><button class="close-modal" id="closeModalBtn">&times;</button></div>
@@ -146,7 +147,6 @@
 
                 <div class="input-group full-width"><label>ملاحظات أولية</label><textarea id="notes" rows="3"></textarea></div>
                 
-                <!-- قسم حجز أول موعد -->
                 <h4 style="margin: 20px 0 15px; color:#ff9a44;">حجز أول موعد / جلسة (اختياري)</h4>
                 <div class="form-grid" style="margin-bottom: 15px;">
                     <div class="input-group"><label>اليوم والتاريخ</label><input type="date" id="newAppDate"></div>
@@ -234,7 +234,29 @@
         </div>
     </div>
 
-    <!-- نافذة إعدادات الأدمن (محدثة بـ سكرتارية) -->
+    <!-- نافذة تذاكر الدعم الفني -->
+    <div id="ticketModal" class="modal-overlay">
+        <div class="glass-card modal-box">
+            <div class="modal-header"><h3>تذكرة دعم / اقتراح</h3><button class="close-modal" id="closeTicketModal">&times;</button></div>
+            <form id="ticketForm" class="modal-form">
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label>النوع *</label>
+                        <select id="ticketType" required>
+                            <option value="مشكلة تقنية">مشكلة تقنية</option>
+                            <option value="اقتراح تطوير">اقتراح تطوير</option>
+                            <option value="استفسار">استفسار</option>
+                        </select>
+                    </div>
+                    <div class="input-group"><label>الموضوع *</label><input type="text" id="ticketSubject" required placeholder="عنوان مختصر"></div>
+                </div>
+                <div class="input-group full-width"><label>التفاصيل *</label><textarea id="ticketMessage" rows="4" required placeholder="اشرح المشكلة أو الاقتراح بالتفصيل..."></textarea></div>
+                <button type="submit" id="submitTicketBtn" class="btn-primary" style="background: linear-gradient(to right, #f12711, #f5af19);"><span class="btn-text">إرسال التذكرة</span><div class="loader" id="ticketLoader"></div></button>
+            </form>
+        </div>
+    </div>
+
+    <!-- نافذة إعدادات الأدمن -->
     <div id="adminModal" class="modal-overlay">
         <div class="glass-card modal-box" style="max-width: 800px;">
             <div class="modal-header"><h3>إعدادات النظام (للأدمن فقط)</h3><button class="close-modal" id="closeAdminModal">&times;</button></div>
