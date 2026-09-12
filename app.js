@@ -1,4 +1,4 @@
-const API_URL = 'https://script.google.com/macros/s/AKfycbxKwM31VLM-LpoEIvyc0vh3T2iLDPTirFM3C3hdq1Mtd7eMw5if2nWZ2cm6KvXxAQe9/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbycRl_S3i2WSTEmEmBHckI2NpsXxypkHRASDpaR2YB1BPLUD4AMw0FWE23ElvFfoDBU/exec';
 const IMGBB_API_KEY = '71307118640265da76172e90445b208b';
 
 function showToast(message, type = 'error') {
@@ -264,11 +264,10 @@ if (document.querySelector('.dashboard-body')) {
             if (data.success) { 
                 showToast('تم إضافة العميل بنجاح!', 'success'); 
                 
-                // حجز الموعد الأول إذا تم إدخاله
                 const newAppDate = document.getElementById('newAppDate').value;
                 const newAppTime = document.getElementById('newAppTime').value;
                 const newAppSpecialist = document.getElementById('newAppSpecialist').value;
-                const newClientId = data.data.clientId; // الكود الذي أرجعه الخادم
+                const newClientId = data.data.clientId; 
                 
                 if (newAppDate && newAppTime && newClientId) {
                     try {
@@ -611,6 +610,38 @@ if (document.querySelector('.dashboard-body')) {
             fetchChat();
             fetchNotifs();
         } catch (err) { showToast('فشل إرسال الرسالة', 'error'); }
+    });
+
+    // ====== نظام تذاكر الدعم الفني ======
+    const ticketModal = document.getElementById('ticketModal');
+    document.getElementById('ticketBtn').addEventListener('click', () => ticketModal.classList.add('active'));
+    document.getElementById('closeTicketModal').addEventListener('click', () => ticketModal.classList.remove('active'));
+
+    document.getElementById('ticketForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('submitTicketBtn');
+        const btnText = btn.querySelector('.btn-text');
+        const loader = document.getElementById('ticketLoader');
+        
+        const data = {
+            action: 'submitTicket', token,
+            sender: currentUser,
+            type: document.getElementById('ticketType').value,
+            subject: document.getElementById('ticketSubject').value,
+            message: document.getElementById('ticketMessage').value
+        };
+        
+        btnText.style.display = 'none'; loader.style.display = 'block'; btn.disabled = true;
+        try {
+            const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(data) });
+            const result = await res.json();
+            if (result.success) { 
+                showToast(result.data.message, 'success'); 
+                document.getElementById('ticketForm').reset(); 
+                ticketModal.classList.remove('active'); 
+            } else { showToast(result.error, 'error'); }
+        } catch (err) { showToast('فشل إرسال التذكرة', 'error'); }
+        finally { btnText.style.display = 'inline'; loader.style.display = 'none'; btn.disabled = false; }
     });
 
     const adminBtn = document.getElementById('adminBtn');
