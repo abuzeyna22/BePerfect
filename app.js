@@ -1,4 +1,4 @@
-const API_URL = 'https://script.google.com/macros/s/AKfycbykmek8WHLMrL5QaGRXLTS0Viioyxee0WNT686vn1jQIguQEG_XHtkd7Xf1RMz7Xihb/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbyCJ8s26akxXPPB4IhOF4xd7w-v3jrL23_OkFsX5-Qec3oPmmRwyt3dw2MH2-O2hdsF/exec';
 
 function showToast(message, type = 'error') {
     const container = document.getElementById('toast-container');
@@ -31,7 +31,6 @@ function exportToCSV(data, filename) {
     const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = filename; link.click();
 }
 
-// دالة مساعدة لتحويل نص الأرقام إلى مصفوفة كائنات
 function parsePhones(phoneString) {
     if (!phoneString) return [];
     return phoneString.split(',').map(p => {
@@ -84,7 +83,6 @@ if (document.querySelector('.dashboard-body')) {
             if (data.success) {
                 globalSettings = data.data;
                 populateDropdowns(); populateEditDropdown(); populateImportDropdown(); populateReportDropdown();
-                populateAdminDropdowns();
             }
         } catch (error) { console.error('Settings Error:', error); }
     }
@@ -96,18 +94,13 @@ if (document.querySelector('.dashboard-body')) {
         document.getElementById('detailBranch').innerHTML = globalSettings.branches.map(b => `<option value="${b}">${b}</option>`).join('');
         document.getElementById('detailSpecialist').innerHTML = '<option value="">لا يوجد</option>' + globalSettings.specialists.map(s => `<option value="${s}">${s}</option>`).join('');
         document.getElementById('appSpecialist').innerHTML = '<option value="">اختر أخصائي</option>' + globalSettings.specialists.map(s => `<option value="${s}">${s}</option>`).join('');
-        
-        // تعبئة قائمة "كيف عرفتنا؟"
         document.getElementById('referralType').innerHTML = '<option value="صديق">صديق</option><option value="جوجل ماب">جوجل ماب</option><option value="لافتة">لافتة</option><option value="عادة">عادة</option>';
-    }
-
-    function populateAdminDropdowns() {
-        const select = document.getElementById('editUserSelect');
-        if (select) {
-            // retain selected value if any
-            const selectedVal = select.value;
-            loadUsersForAdmin();
-        }
+        
+        // تعبئة الفلاتر
+        document.getElementById('filterBranch').innerHTML = '<option value="All">كل الفروع</option>' + globalSettings.branches.map(b => `<option value="${b}">${b}</option>`).join('');
+        document.getElementById('filterSource').innerHTML = '<option value="All">كل المصادر</option>' + globalSettings.sources.map(s => `<option value="${s}">${s}</option>`).join('');
+        document.getElementById('filterSpecialty').innerHTML = '<option value="All">كل التخصصات</option>' + globalSettings.specialties.map(s => `<option value="${s}">${s}</option>`).join('');
+        document.getElementById('filterSpecialist').innerHTML = '<option value="All">كل الأخصائيين</option>' + globalSettings.specialists.map(s => `<option value="${s}">${s}</option>`).join('');
     }
 
     function populateEditDropdown() {
@@ -121,7 +114,12 @@ if (document.querySelector('.dashboard-body')) {
 
     async function fetchClients(page = 1, search = '') {
         try {
-            const url = `${API_URL}?action=getClients&token=${token}&page=${page}&search=${encodeURIComponent(search)}`;
+            const fBranch = document.getElementById('filterBranch').value;
+            const fSource = document.getElementById('filterSource').value;
+            const fSpecialty = document.getElementById('filterSpecialty').value;
+            const fSpecialist = document.getElementById('filterSpecialist').value;
+            
+            const url = `${API_URL}?action=getClients&token=${token}&page=${page}&search=${encodeURIComponent(search)}&fBranch=${encodeURIComponent(fBranch)}&fSource=${encodeURIComponent(fSource)}&fSpecialty=${encodeURIComponent(fSpecialty)}&fSpecialist=${encodeURIComponent(fSpecialist)}`;
             const response = await fetch(url);
             const data = await response.json();
             if (data.success) { renderTable(data.data.clients, data.data.total, page); }
@@ -136,10 +134,12 @@ if (document.querySelector('.dashboard-body')) {
         emptyState.style.display = 'none';
         clients.forEach(c => {
             const statusColor = c.Status === 'عميل محتمل' ? '#f5af19' : c.Status === 'تحت الجلسات' ? '#38ef7d' : '#fff';
+            const date = c.CreatedAt ? new Date(c.CreatedAt).toLocaleDateString('ar-EG') : '-';
             tbody.innerHTML += `
                 <tr>
                     <td><span style="background:rgba(255,255,255,0.1); padding:3px 8px; border-radius:5px; font-size:12px;">${c.ClientID}</span></td>
                     <td>${c.FullName}</td><td>${c.Phone}</td><td>${c.PreferredBranch}</td><td>${c.RequiredSpecialty}</td>
+                    <td style="font-size:12px; opacity:0.8;">${date}</td>
                     <td><span class="status-badge" style="background:${statusColor}30; color:${statusColor};">${c.Status}</span></td>
                     <td><button class="btn-primary btn-details" data-clientid="${c.ClientID}" style="padding:5px 10px; font-size:12px;">تفاصيل</button></td>
                 </tr>
@@ -166,7 +166,11 @@ if (document.querySelector('.dashboard-body')) {
         searchTimeout = setTimeout(() => { searchQuery = e.target.value; currentPage = 1; fetchClients(currentPage, searchQuery); }, 500);
     });
 
-    // ====== منطق الأرقام والمصادر الذكي في إضافة العميل ======
+    // ربط الفلاتر بالبحث
+    ['filterBranch', 'filterSource', 'filterSpecialty', 'filterSpecialist'].forEach(id => {
+        document.getElementById(id).addEventListener('change', () => { currentPage = 1; fetchClients(currentPage, searchQuery); });
+    });
+
     const modal = document.getElementById('clientModal');
     document.getElementById('addClientBtn').addEventListener('click', () => {
         document.getElementById('phonesContainer').innerHTML = `
@@ -193,12 +197,9 @@ if (document.querySelector('.dashboard-body')) {
 
     window.removePhoneRow = function(button) {
         const container = document.getElementById('phonesContainer');
-        if (container.children.length > 1) {
-            button.parentElement.remove();
-        }
+        if (container.children.length > 1) button.parentElement.remove();
     };
 
-    // دالة إظهار وإخفاء المصادر الديناميكية
     window.toggleSourceFields = function() {
         const source = document.getElementById('source').value;
         document.getElementById('referralTypeGroup').style.display = (source === 'زيارة فرع') ? 'block' : 'none';
@@ -212,7 +213,6 @@ if (document.querySelector('.dashboard-body')) {
         const btnText = submitBtn.querySelector('.btn-text');
         const loader = document.getElementById('clientLoader');
         
-        // تجميع الأرقام
         const phones = [];
         document.querySelectorAll('.phone-row').forEach(row => {
             const num = row.querySelector('.phone-input').value.trim();
@@ -239,7 +239,7 @@ if (document.querySelector('.dashboard-body')) {
             source: finalSource,
             notes: document.getElementById('notes').value, 
             createdBy: currentUser,
-            phones: phones // إرسال الأرقام كمتجهة
+            phones: phones
         };
         
         btnText.style.display = 'none'; loader.style.display = 'block'; submitBtn.disabled = true;
@@ -254,7 +254,6 @@ if (document.querySelector('.dashboard-body')) {
 
     document.getElementById('logoutBtn').addEventListener('click', () => { sessionStorage.clear(); window.location.href = 'index.html'; });
 
-    // ====== كارت تفاصيل وتعديل العميل ======
     const detailsModal = document.getElementById('clientDetailsModal');
     document.getElementById('closeDetailsModal').addEventListener('click', () => detailsModal.classList.remove('active'));
 
@@ -272,26 +271,19 @@ if (document.querySelector('.dashboard-body')) {
             document.getElementById('newNoteText').value = ''; 
             document.getElementById('appBranch').value = client.PreferredBranch;
 
-            // عرض الأرقام المتعددة
             const phonesContainer = document.getElementById('detailPhonesContainer');
             phonesContainer.innerHTML = '';
             const phones = parsePhones(client.Phone);
-            if (phones.length === 0) {
-                addDetailPhoneRow();
-            } else {
-                phones.forEach(p => addDetailPhoneRow(p.num, p.wa));
-            }
+            if (phones.length === 0) { addDetailPhoneRow(); } 
+            else { phones.forEach(p => addDetailPhoneRow(p.num, p.wa)); }
 
-            // تحديد رقم الواتساب الأول للزر
             const waPhone = phones.find(p => p.wa);
             const phone = waPhone ? waPhone.num : (phones[0] ? phones[0].num : '');
             if (phone) {
                 const cleanPhone = String(phone).replace(/\D/g, '');
                 const message = `مرحباً ${client.FullName}، نتواصل معكم من مركز Be Perfect للصحة النفسية.`;
                 document.getElementById('whatsappBtn').href = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
-            } else {
-                document.getElementById('whatsappBtn').href = '#';
-            }
+            } else { document.getElementById('whatsappBtn').href = '#'; }
 
             await fetchHistory(clientId);
             await fetchAppointments(clientId);
@@ -331,7 +323,6 @@ if (document.querySelector('.dashboard-body')) {
     }
 
     document.getElementById('saveClientChangesBtn').addEventListener('click', async () => {
-        // تجميع الأرقام من كارت التفاصيل
         const phones = [];
         document.querySelectorAll('#detailPhonesContainer .phone-row').forEach(row => {
             const num = row.querySelector('.phone-input').value.trim();
@@ -345,7 +336,7 @@ if (document.querySelector('.dashboard-body')) {
             specialist: document.getElementById('detailSpecialist').value,
             newNote: document.getElementById('newNoteText').value, 
             changedBy: currentUser,
-            phones: phones // تحديث الأرقام
+            phones: phones
         };
         try {
             const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(data) });
@@ -356,12 +347,11 @@ if (document.querySelector('.dashboard-body')) {
                 await fetchHistory(currentDetailClientId); 
                 fetchClients(currentPage, searchQuery); 
                 fetchNotifs(); 
-                openClientDetails(currentDetailClientId); // تحديث الكارت ليعكس التعديلات
+                openClientDetails(currentDetailClientId);
             } else { showToast(result.error, 'error'); }
         } catch (err) { showToast('فشل الاتصال', 'error'); }
     });
 
-    // ====== منطق حجز المواعيد ======
     document.getElementById('bookAppointmentBtn').addEventListener('click', async () => {
         const data = {
             action: 'addAppointment', token,
@@ -372,19 +362,12 @@ if (document.querySelector('.dashboard-body')) {
             specialist: document.getElementById('appSpecialist').value,
             createdBy: currentUser
         };
-        
         if (!data.date || !data.time) return showToast('يرجى إدخال اليوم والساعة', 'warning');
-        
         try {
             const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(data) });
             const result = await res.json();
-            if (result.success) { 
-                showToast('تم حجز الموعد بنجاح', 'success'); 
-                document.getElementById('appDate').value = ''; 
-                document.getElementById('appTime').value = ''; 
-                fetchAppointments(currentDetailClientId); 
-                fetchNotifs(); 
-            } else { showToast(result.error, 'error'); }
+            if (result.success) { showToast('تم حجز الموعد بنجاح', 'success'); document.getElementById('appDate').value = ''; document.getElementById('appTime').value = ''; fetchAppointments(currentDetailClientId); fetchNotifs(); } 
+            else { showToast(result.error, 'error'); }
         } catch (err) { showToast('فشل الاتصال', 'error'); }
     });
 
@@ -406,7 +389,6 @@ if (document.querySelector('.dashboard-body')) {
         } catch (e) { console.error('Appointments Error', e); }
     }
 
-    // ====== منطق التقارير ======
     const reportModal = document.getElementById('reportModal');
     document.getElementById('reportBtn').addEventListener('click', () => reportModal.classList.add('active'));
     document.getElementById('closeReportModal').addEventListener('click', () => reportModal.classList.remove('active'));
@@ -433,7 +415,6 @@ if (document.querySelector('.dashboard-body')) {
         finally { btnText.style.display = 'inline'; loader.style.display = 'none'; btn.disabled = false; }
     });
 
-    // ====== منطق التنبيهات الذكي ======
     async function fetchNotifs() {
         try {
             const res = await fetch(`${API_URL}?action=getNotifs&token=${token}&user=${currentUser}`);
@@ -461,17 +442,15 @@ if (document.querySelector('.dashboard-body')) {
                             const actionType = item.getAttribute('data-action-type');
                             const actionId = item.getAttribute('data-action-id');
                             document.getElementById('notifDropdown').style.display = 'none';
-                            
-                            if (actionType === 'client_details' && actionId) {
-                                openClientDetails(actionId); 
-                            } else if (actionType === 'chat' && actionId) {
+                            if (actionType === 'client_details' && actionId) { openClientDetails(actionId); } 
+                            else if (actionType === 'chat' && actionId) {
                                 document.getElementById('chatBtn').click();
                                 setTimeout(() => {
                                     const select = document.getElementById('chatTarget');
                                     select.value = actionId;
                                     const event = new Event('change');
                                     select.dispatchEvent(event);
-                                }, 1500); 
+                                }, 1500);
                             }
                         });
                     });
@@ -482,22 +461,17 @@ if (document.querySelector('.dashboard-body')) {
 
     window.toggleNotifs = function() {
         const dropdown = document.getElementById('notifDropdown');
-        if (dropdown.style.display === 'block') {
-            dropdown.style.display = 'none';
-        } else {
-            dropdown.style.display = 'block';
-            window.markNotifsRead(); 
-        }
+        if (dropdown.style.display === 'block') { dropdown.style.display = 'none'; } 
+        else { dropdown.style.display = 'block'; window.markNotifsRead(); }
     };
 
     window.markNotifsRead = async function() {
         try {
             await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'markNotifRead', token, user: currentUser }) });
-            document.getElementById('notifBadge').style.display = 'none'; 
+            document.getElementById('notifBadge').style.display = 'none';
         } catch (e) { console.error(e); }
     };
 
-    // ====== منطق الشات ======
     const chatModal = document.getElementById('chatModal');
     document.getElementById('chatBtn').addEventListener('click', async () => {
         chatModal.classList.add('active');
@@ -591,7 +565,6 @@ if (document.querySelector('.dashboard-body')) {
         } catch (err) { showToast('فشل إرسال الرسالة', 'error'); }
     });
 
-    // ====== منطق لوحة الأدمن ======
     const adminBtn = document.getElementById('adminBtn');
     const adminModal = document.getElementById('adminModal');
     if (sessionStorage.getItem('userRole') === 'Admin') { adminBtn.style.display = 'flex'; }
@@ -637,9 +610,7 @@ if (document.querySelector('.dashboard-body')) {
             document.getElementById('editProfilePic').value = user.ProfilePic || '';
             document.getElementById('editRole').value = user.Role;
             document.getElementById('editUserBranch').value = user.Branch;
-        } else {
-            document.getElementById('editUserForm').reset();
-        }
+        } else { document.getElementById('editUserForm').reset(); }
     });
 
     document.getElementById('addUserForm').addEventListener('submit', async function(e) {
@@ -667,7 +638,6 @@ if (document.querySelector('.dashboard-body')) {
         e.preventDefault();
         const userId = document.getElementById('editUserId').value;
         if (!userId) return showToast('يرجى اختيار مستخدم من القائمة أولاً', 'warning');
-        
         const data = {
             action: 'updateUser', token, userId,
             username: document.getElementById('editUsername').value,
@@ -746,7 +716,6 @@ if (document.querySelector('.dashboard-body')) {
         finally { btnText.style.display = 'inline'; loader.style.display = 'none'; importBtn.disabled = false; }
     });
 
-    // بدء التشغيل
     fetchSettings();
     fetchClients(currentPage, searchQuery);
     fetchNotifs();
