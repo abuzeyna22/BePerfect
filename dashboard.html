@@ -39,10 +39,13 @@
         .phone-row .remove-phone { background: rgba(239, 71, 58, 0.3); color: #fff; border: none; border-radius: 8px; cursor: pointer; padding: 8px 12px; font-weight: bold; }
         .phone-row .wa-check { display: flex; align-items: center; gap: 5px; font-size: 13px; color: #25D366; }
         
-        /* ستايل الفلاتر */
         .filters-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
         .filters-bar select { padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: #fff; font-size: 13px; box-shadow: inset 0 2px 5px rgba(0,0,0,0.2); }
         .filters-bar select option { color: #333; }
+        
+        .upload-preview { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; display: none; margin-top: 10px; }
+        .upload-btn { background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); padding: 8px; border-radius: 8px; cursor: pointer; text-align: center; margin-top: 5px; }
+        .upload-btn:hover { background: rgba(255,255,255,0.2); }
     </style>
 </head>
 <body class="dashboard-body">
@@ -91,7 +94,6 @@
                 <button id="addClientBtn" class="btn-primary">+ إضافة عميل جديد</button>
             </div>
             
-            <!-- شريط الفلاتر الذكي -->
             <div class="filters-bar">
                 <select id="filterBranch"><option value="All">كل الفروع</option></select>
                 <select id="filterSource"><option value="All">كل المصادر</option></select>
@@ -223,7 +225,7 @@
         </div>
     </div>
 
-    <!-- نافذة إعدادات الأدمن -->
+    <!-- نافذة إعدادات الأدمن (محدثة برفع الصور) -->
     <div id="adminModal" class="modal-overlay">
         <div class="glass-card modal-box" style="max-width: 800px;">
             <div class="modal-header"><h3>إعدادات النظام (للأدمن فقط)</h3><button class="close-modal" id="closeAdminModal">&times;</button></div>
@@ -242,9 +244,23 @@
                         <div class="input-group"><label>الوظيفة</label><input type="text" id="addJobTitle" placeholder="مثال: سكرتير فرع سموحة"></div>
                         <div class="input-group"><label>البريد الإلكتروني</label><input type="email" id="addEmail" placeholder="user@beperfect.com"></div>
                         <div class="input-group"><label>رقم واتساب</label><input type="text" id="addWhatsApp" placeholder="2010xxxxxxx"></div>
-                        <div class="input-group"><label>رابط الصورة</label><input type="text" id="addProfilePic" placeholder="https://..."></div>
-                        <div class="input-group"><label>الصلاحية *</label><select id="addRole"><option value="Secretary">سكرتير</option><option value="Moderator">مودريتور</option><option value="Admin">أدمن</option></select></div>
-                        <div class="input-group"><label>الفرع</label><input type="text" id="addUserBranch" placeholder="All لكل الفروع"></div>
+                        <div class="input-group">
+                            <label>الصلاحية *</label>
+                            <select id="addRole"><option value="Secretary">سكرتير</option><option value="Moderator">مودريتور</option><option value="Admin">أدمن</option></select>
+                        </div>
+                        <div class="input-group">
+                            <label>الفرع *</label>
+                            <select id="addUserBranch"></select>
+                        </div>
+                        <div class="input-group full-width">
+                            <label>صارة الملف الشخصي</label>
+                            <div style="display:flex; align-items:center; gap:15px;">
+                                <input type="file" id="addProfilePicFile" accept="image/*" style="display:none;">
+                                <button type="button" class="upload-btn" onclick="document.getElementById('addProfilePicFile').click()">اختر صورة</button>
+                                <img id="addProfilePicPreview" class="upload-preview">
+                                <input type="hidden" id="addProfilePic">
+                            </div>
+                        </div>
                     </div>
                     <button type="submit" class="btn-primary">+ حفظ المستخدم الجديد</button>
                 </form>
@@ -266,9 +282,23 @@
                         <div class="input-group"><label>الوظيفة</label><input type="text" id="editJobTitle"></div>
                         <div class="input-group"><label>البريد الإلكتروني</label><input type="email" id="editEmail"></div>
                         <div class="input-group"><label>رقم واتساب</label><input type="text" id="editWhatsApp"></div>
-                        <div class="input-group"><label>رابط الصورة</label><input type="text" id="editProfilePic"></div>
-                        <div class="input-group"><label>الصلاحية</label><select id="editRole"><option value="Secretary">سكرتير</option><option value="Moderator">مودريتور</option><option value="Admin">أدمن</option></select></div>
-                        <div class="input-group"><label>الفرع</label><input type="text" id="editUserBranch" placeholder="All لكل الفروع"></div>
+                        <div class="input-group">
+                            <label>الصلاحية</label>
+                            <select id="editRole"><option value="Secretary">سكرتير</option><option value="Moderator">مودريتور</option><option value="Admin">أدمن</option></select>
+                        </div>
+                        <div class="input-group">
+                            <label>الفرع</label>
+                            <select id="editUserBranch"></select>
+                        </div>
+                        <div class="input-group full-width">
+                            <label>صارة الملف الشخصي</label>
+                            <div style="display:flex; align-items:center; gap:15px;">
+                                <input type="file" id="editProfilePicFile" accept="image/*" style="display:none;">
+                                <button type="button" class="upload-btn" onclick="document.getElementById('editProfilePicFile').click()">اختر صورة</button>
+                                <img id="editProfilePicPreview" class="upload-preview">
+                                <input type="hidden" id="editProfilePic">
+                            </div>
+                        </div>
                     </div>
                     <button type="submit" class="btn-primary" style="background: linear-gradient(to right, #6a11cb, #2575fc);">حفظ التعديلات</button>
                 </form>
