@@ -1,5 +1,23 @@
-const API_URL = 'https://script.google.com/macros/s/AKfycbwaaMGxTExv8FZZEVizFsR9Qr43NEAjZBCDHCduYIux6DS4lT1UREc_NTC_tiWW6miJ/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycby30u3KILmgsIZcLSuftLaOmpMAYYms_OwguSSo66aLnjcnMIZjtY0Am_O_88jaRO6K/exec';
 const IMGBB_API_KEY = '71307118640265da76172e90445b208b';
+
+// نظام التنبيه الصوتي
+let audioCtx;
+function playBeep() {
+    try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let oscillator = audioCtx.createOscillator();
+        let gain = audioCtx.createGain();
+        oscillator.connect(gain);
+        gain.connect(audioCtx.destination);
+        oscillator.type = 'sine';
+        oscillator.frequency.value = 880;
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + 0.5);
+    } catch(e) { console.log("Audio not supported"); }
+}
 
 function showToast(message, type = 'error') {
     const container = document.getElementById('toast-container');
@@ -33,8 +51,10 @@ function exportToCSV(data, filename) {
 }
 
 function parsePhones(phoneString) {
-    if (!phoneString) return [];
-    return phoneString.split(',').map(p => {
+    if (!phoneString && phoneString !== 0) return [];
+    const str = String(phoneString).trim();
+    if (!str) return [];
+    return str.split(',').map(p => {
         p = p.trim();
         let wa = p.includes('(واتساب)');
         let num = p.replace('(واتساب)', '').trim();
@@ -87,6 +107,7 @@ if (document.querySelector('.dashboard-body')) {
     let currentPage = 1, searchQuery = '', currentDetailClientId = '';
     let globalSettings = { branches: [], specialties: [], specialists: [], sources: [] };
     let chatPolling, allUsersForMention = [], allUsersForEdit = [];
+    let lastUnreadCount = 0;
 
     async function fetchSettings() {
         try {
@@ -134,8 +155,10 @@ if (document.querySelector('.dashboard-body')) {
             const fSource = document.getElementById('filterSource').value;
             const fSpecialty = document.getElementById('filterSpecialty').value;
             const fSpecialist = document.getElementById('filterSpecialist').value;
+            const fStatus = document.getElementById('filterStatus').value;
+            const fArchived = document.getElementById('filterArchived').checked;
             
-            const url = `${API_URL}?action=getClients&token=${token}&page=${page}&search=${encodeURIComponent(search)}&fBranch=${encodeURIComponent(fBranch)}&fSource=${encodeURIComponent(fSource)}&fSpecialty=${encodeURIComponent(fSpecialty)}&fSpecialist=${encodeURIComponent(fSpecialist)}`;
+            const url = `${API_URL}?action=getClients&token=${token}&page=${page}&search=${encodeURIComponent(search)}&fBranch=${encodeURIComponent(fBranch)}&fSource=${encodeURIComponent(fSource)}&fSpecialty=${encodeURIComponent(fSpecialty)}&fSpecialist=${encodeURIComponent(fSpecialist)}&fStatus=${encodeURIComponent(fStatus)}&fArchived=${fArchived}`;
             const response = await fetch(url);
             const data = await response.json();
             if (data.success) { renderTable(data.data.clients, data.data.total, page); }
@@ -149,15 +172,34 @@ if (document.querySelector('.dashboard-body')) {
         if (clients.length === 0) { emptyState.style.display = 'block'; document.getElementById('pagination').innerHTML = ''; return; }
         emptyState.style.display = 'none';
         clients.forEach(c => {
-            const statusColor = c.Status === 'عميل محتمل' ? '#f5af19' : c.Status === 'تحت الجلسات' ? '#38ef7d' : '#fff';
+            const statusColors = {
+                'عميل محتمل': '#f5af19',
+                'تم الحجز': '#2575fc',
+                'تحت الجلسات': '#38ef7d',
+                'متأخر/متوقف': '#ff3b3b',
+                'مكتمل': '#aaaaaa'
+            };
+            const statusColor = statusColors[c.Status] || '#fff';
             const date = c.CreatedAt ? new Date(c.CreatedAt).toLocaleDateString('ar-EG') : '-';
+            const isLate = c.Status === 'متأخر/متوقف';
+            const archBtn = c.IsArchived ? 
+                `<button class="btn-primary unarchive-btn" data-id="${c.ClientID}" style="padding:3px 6px; font-size:10px; background: #11998e;">إلغاء الأرشفة</button>` : 
+                `<button class="btn-primary archive-btn" data-id="${c.ClientID}" style="padding:3px 6px; font-size:10px; background: #6a11cb;">أرشفة</button>`;
+            
             tbody.innerHTML += `
-                <tr>
+                <tr ${isLate ? 'class="status-late"' : ''}>
                     <td><span style="background:rgba(255,255,255,0.1); padding:3px 8px; border-radius:5px; font-size:12px;">${c.ClientID}</span></td>
-                    <td>${c.FullName}</td><td>${c.Phone}</td><td>${c.PreferredBranch}</td><td>${c.RequiredSpecialty}</td>
+                    <td>${c.FullName}</td>
+                    <td>${c.Phone}</td>
+                    <td>${c.PreferredBranch}</td>
+                    <td style="font-size:12px;">${c.Source || '-'}</td>
+                    <td style="font-size:12px;">${c.CreatedBy || '-'}</td>
                     <td style="font-size:12px; opacity:0.8;">${date}</td>
-                    <td><span class="status-badge" style="background:${statusColor}30; color:${statusColor};">${c.Status}</span></td>
-                    <td><button class="btn-primary btn-details" data-clientid="${c.ClientID}" style="padding:5px 10px; font-size:12px;">تفاصيل</button></td>
+                    <td><span class="status-badge" style="background:${statusColor}30; color:${statusColor}; font-weight:bold;">${c.Status}</span></td>
+                    <td style="display:flex; gap:5px;">
+                        <button class="btn-primary btn-details" data-clientid="${c.ClientID}" style="padding:5px 10px; font-size:12px;">تفاصيل</button>
+                        ${archBtn}
+                    </td>
                 </tr>
             `;
         });
@@ -174,6 +216,20 @@ if (document.querySelector('.dashboard-body')) {
         document.querySelectorAll('.btn-details').forEach(btn => {
             btn.addEventListener('click', (e) => openClientDetails(e.currentTarget.getAttribute('data-clientid')));
         });
+        document.querySelectorAll('.archive-btn, .unarchive-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => archiveClient(e.currentTarget.getAttribute('data-id'), e.currentTarget.classList.contains('archive-btn')));
+        });
+    }
+
+    async function archiveClient(clientId, archive) {
+        try {
+            const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'archiveClient', token, clientId, archive }) });
+            const result = await res.json();
+            if (result.success) { 
+                showToast(result.data.message, 'success'); 
+                fetchClients(currentPage, searchQuery); 
+            } else { showToast(result.error, 'error'); }
+        } catch (err) { showToast('فشل الاتصال', 'error'); }
     }
 
     let searchTimeout;
@@ -182,7 +238,7 @@ if (document.querySelector('.dashboard-body')) {
         searchTimeout = setTimeout(() => { searchQuery = e.target.value; currentPage = 1; fetchClients(currentPage, searchQuery); }, 500);
     });
 
-    ['filterBranch', 'filterSource', 'filterSpecialty', 'filterSpecialist'].forEach(id => {
+    ['filterBranch', 'filterSource', 'filterSpecialty', 'filterSpecialist', 'filterStatus', 'filterArchived'].forEach(id => {
         document.getElementById(id).addEventListener('change', () => { currentPage = 1; fetchClients(currentPage, searchQuery); });
     });
 
@@ -314,6 +370,7 @@ if (document.querySelector('.dashboard-body')) {
             document.getElementById('detailClientID').value = client.ClientID;
             document.getElementById('detailBranch').value = client.PreferredBranch;
             document.getElementById('detailSpecialist').value = client.AssignedSpecialist || "";
+            document.getElementById('detailStatus').value = client.Status || "عميل محتمل";
             document.getElementById('newNoteText').value = ''; 
             document.getElementById('appBranch').value = client.PreferredBranch;
 
@@ -331,14 +388,14 @@ if (document.querySelector('.dashboard-body')) {
                 document.getElementById('whatsappBtn').href = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
             } else { document.getElementById('whatsappBtn').href = '#'; }
 
-            detailsModal.classList.add('active'); // إظهار الكارت فوراً قبل جلب التواريخ والمواعيد
+            detailsModal.classList.add('active'); 
             
             await fetchHistory(clientId);
             await fetchAppointments(clientId);
             
         } catch (err) { 
             console.error('Client Details Error:', err);
-            showToast('فشل تحميل بيانات العميل (تحقق من Console)', 'error'); 
+            showToast('فشل تحميل بيانات العميل', 'error'); 
         }
     }
 
@@ -391,6 +448,7 @@ if (document.querySelector('.dashboard-body')) {
             action: 'updateClient', token, clientId: currentDetailClientId,
             branch: document.getElementById('detailBranch').value, 
             specialist: document.getElementById('detailSpecialist').value,
+            status: document.getElementById('detailStatus').value,
             newNote: document.getElementById('newNoteText').value, 
             changedBy: currentUser,
             phones: phones
@@ -423,7 +481,7 @@ if (document.querySelector('.dashboard-body')) {
         try {
             const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(data) });
             const result = await res.json();
-            if (result.success) { showToast('تم حجز الموعد بنجاح', 'success'); document.getElementById('appDate').value = ''; document.getElementById('appTime').value = ''; fetchAppointments(currentDetailClientId); fetchNotifs(); } 
+            if (result.success) { showToast('تم حجز الموعد بنجاح', 'success'); document.getElementById('appDate').value = ''; document.getElementById('appTime').value = ''; fetchAppointments(currentDetailClientId); fetchHistory(currentDetailClientId); fetchNotifs(); } 
             else { showToast(result.error, 'error'); }
         } catch (err) { showToast('فشل الاتصال', 'error'); }
     });
@@ -440,7 +498,19 @@ if (document.querySelector('.dashboard-body')) {
                     list.innerHTML += `<div style="background:rgba(255,255,255,0.05); padding:10px; border-radius:8px; margin-bottom:8px;">
                         <strong>${new Date(app.date).toLocaleDateString('ar-EG')}</strong> - ${app.time} <br>
                         <small>الأخصائي: ${app.specialist} | الحالة: ${app.status}</small>
+                        ${app.status !== 'ملغي' ? `<div style="margin-top:5px; text-align:left;"><button class="btn-danger cancel-app-btn" data-id="${app.id}" style="font-size:10px; padding:3px 8px;">إلغاء الموعد</button></div>` : ''}
                     </div>`;
+                });
+                document.querySelectorAll('.cancel-app-btn').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        const appId = e.currentTarget.getAttribute('data-id');
+                        try {
+                            const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'cancelAppointment', token, appId }) });
+                            const result = await res.json();
+                            if (result.success) { showToast('تم إلغاء الموعد', 'success'); fetchAppointments(currentDetailClientId); fetchHistory(currentDetailClientId); } 
+                            else { showToast(result.error, 'error'); }
+                        } catch (err) { showToast('فشل الاتصال', 'error'); }
+                    });
                 });
             }
         } catch (e) { console.error('Appointments Error', e); }
@@ -481,6 +551,12 @@ if (document.querySelector('.dashboard-body')) {
                 const badge = document.getElementById('notifBadge');
                 badge.innerText = unread;
                 badge.style.display = unread > 0 ? 'flex' : 'none';
+                
+                // تشغيل الصوت عند وصول إشعار جديد
+                if (unread > lastUnreadCount) {
+                    playBeep();
+                }
+                lastUnreadCount = unread;
                 
                 const list = document.getElementById('notifList');
                 list.innerHTML = '';
@@ -526,6 +602,7 @@ if (document.querySelector('.dashboard-body')) {
         try {
             await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'markNotifRead', token, user: currentUser }) });
             document.getElementById('notifBadge').style.display = 'none';
+            lastUnreadCount = 0;
         } catch (e) { console.error(e); }
     };
 
