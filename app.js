@@ -1,4 +1,5 @@
 const API_URL = 'https://script.google.com/macros/s/AKfycbyCJ8s26akxXPPB4IhOF4xd7w-v3jrL23_OkFsX5-Qec3oPmmRwyt3dw2MH2-O2hdsF/exec';
+const IMGBB_API_KEY = '71307118640265da76172e90445b208b'; // مفتاح ImgBB
 
 function showToast(message, type = 'error') {
     const container = document.getElementById('toast-container');
@@ -39,6 +40,23 @@ function parsePhones(phoneString) {
         let num = p.replace('(واتساب)', '').trim();
         return { num, wa };
     });
+}
+
+// دالة رفع الصورة لـ ImgBB
+async function uploadImageToImgBB(file) {
+    const formData = new FormData();
+    formData.append('image', file);
+    try {
+        const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+        if (data.success) return data.data.url;
+        throw new Error('فشل رفع الصورة');
+    } catch (err) {
+        throw new Error('فشل الاتصال بمزود الصور');
+    }
 }
 
 if (document.getElementById('loginForm')) {
@@ -96,11 +114,16 @@ if (document.querySelector('.dashboard-body')) {
         document.getElementById('appSpecialist').innerHTML = '<option value="">اختر أخصائي</option>' + globalSettings.specialists.map(s => `<option value="${s}">${s}</option>`).join('');
         document.getElementById('referralType').innerHTML = '<option value="صديق">صديق</option><option value="جوجل ماب">جوجل ماب</option><option value="لافتة">لافتة</option><option value="عادة">عادة</option>';
         
-        // تعبئة الفلاتر
+        // تعبئة فلاتر البحث
         document.getElementById('filterBranch').innerHTML = '<option value="All">كل الفروع</option>' + globalSettings.branches.map(b => `<option value="${b}">${b}</option>`).join('');
         document.getElementById('filterSource').innerHTML = '<option value="All">كل المصادر</option>' + globalSettings.sources.map(s => `<option value="${s}">${s}</option>`).join('');
         document.getElementById('filterSpecialty').innerHTML = '<option value="All">كل التخصصات</option>' + globalSettings.specialties.map(s => `<option value="${s}">${s}</option>`).join('');
         document.getElementById('filterSpecialist').innerHTML = '<option value="All">كل الأخصائيين</option>' + globalSettings.specialists.map(s => `<option value="${s}">${s}</option>`).join('');
+        
+        // تعبئة قائمة فرع الموظف (Add & Edit)
+        const userBranches = '<option value="All">All لكل الفروع</option>' + globalSettings.branches.map(b => `<option value="${b}">${b}</option>`).join('');
+        document.getElementById('addUserBranch').innerHTML = userBranches;
+        document.getElementById('editUserBranch').innerHTML = userBranches;
     }
 
     function populateEditDropdown() {
@@ -166,7 +189,6 @@ if (document.querySelector('.dashboard-body')) {
         searchTimeout = setTimeout(() => { searchQuery = e.target.value; currentPage = 1; fetchClients(currentPage, searchQuery); }, 500);
     });
 
-    // ربط الفلاتر بالبحث
     ['filterBranch', 'filterSource', 'filterSpecialty', 'filterSpecialist'].forEach(id => {
         document.getElementById(id).addEventListener('change', () => { currentPage = 1; fetchClients(currentPage, searchQuery); });
     });
@@ -608,9 +630,38 @@ if (document.querySelector('.dashboard-body')) {
             document.getElementById('editEmail').value = user.Email || '';
             document.getElementById('editWhatsApp').value = user.WhatsApp || '';
             document.getElementById('editProfilePic').value = user.ProfilePic || '';
+            document.getElementById('editProfilePicPreview').src = user.ProfilePic || '';
+            document.getElementById('editProfilePicPreview').style.display = user.ProfilePic ? 'block' : 'none';
             document.getElementById('editRole').value = user.Role;
             document.getElementById('editUserBranch').value = user.Branch;
         } else { document.getElementById('editUserForm').reset(); }
+    });
+
+    // منطق رفع الصور
+    document.getElementById('addProfilePicFile').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        showToast('جاري رفع الصورة...', 'warning');
+        try {
+            const url = await uploadImageToImgBB(file);
+            document.getElementById('addProfilePic').value = url;
+            document.getElementById('addProfilePicPreview').src = url;
+            document.getElementById('addProfilePicPreview').style.display = 'block';
+            showToast('تم رفع الصورة بنجاح', 'success');
+        } catch (err) { showToast(err.message, 'error'); }
+    });
+
+    document.getElementById('editProfilePicFile').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        showToast('جاري رفع الصورة...', 'warning');
+        try {
+            const url = await uploadImageToImgBB(file);
+            document.getElementById('editProfilePic').value = url;
+            document.getElementById('editProfilePicPreview').src = url;
+            document.getElementById('editProfilePicPreview').style.display = 'block';
+            showToast('تم رفع الصورة بنجاح', 'success');
+        } catch (err) { showToast(err.message, 'error'); }
     });
 
     document.getElementById('addUserForm').addEventListener('submit', async function(e) {
@@ -629,7 +680,7 @@ if (document.querySelector('.dashboard-body')) {
         try {
             const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(data) });
             const result = await res.json();
-            if (result.success) { showToast(result.data.message, 'success'); document.getElementById('addUserForm').reset(); loadUsersForAdmin(); } 
+            if (result.success) { showToast(result.data.message, 'success'); document.getElementById('addUserForm').reset(); document.getElementById('addProfilePicPreview').style.display = 'none'; loadUsersForAdmin(); } 
             else { showToast(result.error, 'error'); }
         } catch (err) { showToast('فشل الاتصال', 'error'); }
     });
@@ -652,7 +703,7 @@ if (document.querySelector('.dashboard-body')) {
         try {
             const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(data) });
             const result = await res.json();
-            if (result.success) { showToast(result.data.message, 'success'); document.getElementById('editUserForm').reset(); loadUsersForAdmin(); } 
+            if (result.success) { showToast(result.data.message, 'success'); document.getElementById('editUserForm').reset(); document.getElementById('editProfilePicPreview').style.display = 'none'; loadUsersForAdmin(); } 
             else { showToast(result.error, 'error'); }
         } catch (err) { showToast('فشل الاتصال', 'error'); }
     });
