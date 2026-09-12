@@ -1,4 +1,4 @@
-const API_URL = 'https://script.google.com/macros/s/AKfycbzqB5UYC2iFUvQlEsAj0KdseSQAtOFhkHIwmNkZ2u23ylq20Ws0zNE-wsQb2zEyhRDA/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbykmek8WHLMrL5QaGRXLTS0Viioyxee0WNT686vn1jQIguQEG_XHtkd7Xf1RMz7Xihb/exec';
 
 function showToast(message, type = 'error') {
     const container = document.getElementById('toast-container');
@@ -29,6 +29,17 @@ function exportToCSV(data, filename) {
     const csvString = "\uFEFF" + csvRows.join('\n');
     const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = filename; link.click();
+}
+
+// دالة مساعدة لتحويل نص الأرقام إلى مصفوفة كائنات
+function parsePhones(phoneString) {
+    if (!phoneString) return [];
+    return phoneString.split(',').map(p => {
+        p = p.trim();
+        let wa = p.includes('(واتساب)');
+        let num = p.replace('(واتساب)', '').trim();
+        return { num, wa };
+    });
 }
 
 if (document.getElementById('loginForm')) {
@@ -73,6 +84,7 @@ if (document.querySelector('.dashboard-body')) {
             if (data.success) {
                 globalSettings = data.data;
                 populateDropdowns(); populateEditDropdown(); populateImportDropdown(); populateReportDropdown();
+                populateAdminDropdowns();
             }
         } catch (error) { console.error('Settings Error:', error); }
     }
@@ -81,6 +93,21 @@ if (document.querySelector('.dashboard-body')) {
         document.getElementById('preferredBranch').innerHTML = globalSettings.branches.map(b => `<option value="${b}">${b}</option>`).join('');
         document.getElementById('requiredSpecialty').innerHTML = globalSettings.specialties.map(s => `<option value="${s}">${s}</option>`).join('');
         document.getElementById('source').innerHTML = globalSettings.sources.map(s => `<option value="${s}">${s}</option>`).join('');
+        document.getElementById('detailBranch').innerHTML = globalSettings.branches.map(b => `<option value="${b}">${b}</option>`).join('');
+        document.getElementById('detailSpecialist').innerHTML = '<option value="">لا يوجد</option>' + globalSettings.specialists.map(s => `<option value="${s}">${s}</option>`).join('');
+        document.getElementById('appSpecialist').innerHTML = '<option value="">اختر أخصائي</option>' + globalSettings.specialists.map(s => `<option value="${s}">${s}</option>`).join('');
+        
+        // تعبئة قائمة "كيف عرفتنا؟"
+        document.getElementById('referralType').innerHTML = '<option value="صديق">صديق</option><option value="جوجل ماب">جوجل ماب</option><option value="لافتة">لافتة</option><option value="عادة">عادة</option>';
+    }
+
+    function populateAdminDropdowns() {
+        const select = document.getElementById('editUserSelect');
+        if (select) {
+            // retain selected value if any
+            const selectedVal = select.value;
+            loadUsersForAdmin();
+        }
     }
 
     function populateEditDropdown() {
@@ -139,22 +166,82 @@ if (document.querySelector('.dashboard-body')) {
         searchTimeout = setTimeout(() => { searchQuery = e.target.value; currentPage = 1; fetchClients(currentPage, searchQuery); }, 500);
     });
 
+    // ====== منطق الأرقام والمصادر الذكي في إضافة العميل ======
     const modal = document.getElementById('clientModal');
-    document.getElementById('addClientBtn').addEventListener('click', () => modal.classList.add('active'));
+    document.getElementById('addClientBtn').addEventListener('click', () => {
+        document.getElementById('phonesContainer').innerHTML = `
+            <div class="phone-row">
+                <input type="text" class="phone-input" placeholder="01012345678" required>
+                <label class="wa-check"><input type="checkbox" class="phone-wa"> واتساب</label>
+                <button type="button" class="remove-phone" onclick="removePhoneRow(this)">X</button>
+            </div>
+        `;
+        modal.classList.add('active');
+    });
     document.getElementById('closeModalBtn').addEventListener('click', () => modal.classList.remove('active'));
+
+    document.getElementById('addPhoneBtn').addEventListener('click', () => {
+        const container = document.getElementById('phonesContainer');
+        container.innerHTML += `
+            <div class="phone-row">
+                <input type="text" class="phone-input" placeholder="01012345678" required>
+                <label class="wa-check"><input type="checkbox" class="phone-wa"> واتساب</label>
+                <button type="button" class="remove-phone" onclick="removePhoneRow(this)">X</button>
+            </div>
+        `;
+    });
+
+    window.removePhoneRow = function(button) {
+        const container = document.getElementById('phonesContainer');
+        if (container.children.length > 1) {
+            button.parentElement.remove();
+        }
+    };
+
+    // دالة إظهار وإخفاء المصادر الديناميكية
+    window.toggleSourceFields = function() {
+        const source = document.getElementById('source').value;
+        document.getElementById('referralTypeGroup').style.display = (source === 'زيارة فرع') ? 'block' : 'none';
+        document.getElementById('platformGroup').style.display = (source === 'سوشيال ميديا') ? 'block' : 'none';
+        document.getElementById('campaignGroup').style.display = (source === 'سوشيال ميديا') ? 'block' : 'none';
+    };
 
     document.getElementById('addClientForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         const submitBtn = document.getElementById('submitClientBtn');
         const btnText = submitBtn.querySelector('.btn-text');
         const loader = document.getElementById('clientLoader');
+        
+        // تجميع الأرقام
+        const phones = [];
+        document.querySelectorAll('.phone-row').forEach(row => {
+            const num = row.querySelector('.phone-input').value.trim();
+            const wa = row.querySelector('.phone-wa').checked;
+            if (num) phones.push({ num, wa });
+        });
+
+        if (phones.length === 0) return showToast('يرجى إدخال رقم هاتف واحد على الأقل', 'warning');
+
+        const source = document.getElementById('source').value;
+        let finalSource = source;
+        if (source === 'زيارة فرع') {
+            finalSource += ` (${document.getElementById('referralType').value})`;
+        } else if (source === 'سوشيال ميديا') {
+            finalSource += ` (${document.getElementById('platform').value} - ${document.getElementById('campaign').value})`;
+        }
+
         const clientData = {
             action: 'addClient', token,
-            fullName: document.getElementById('fullName').value, phone: document.getElementById('phone').value,
-            age: document.getElementById('age').value, preferredBranch: document.getElementById('preferredBranch').value,
-            requiredSpecialty: document.getElementById('requiredSpecialty').value, source: document.getElementById('source').value,
-            notes: document.getElementById('notes').value, createdBy: currentUser
+            fullName: document.getElementById('fullName').value, 
+            age: document.getElementById('age').value, 
+            preferredBranch: document.getElementById('preferredBranch').value,
+            requiredSpecialty: document.getElementById('requiredSpecialty').value, 
+            source: finalSource,
+            notes: document.getElementById('notes').value, 
+            createdBy: currentUser,
+            phones: phones // إرسال الأرقام كمتجهة
         };
+        
         btnText.style.display = 'none'; loader.style.display = 'block'; submitBtn.disabled = true;
         try {
             const response = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(clientData) });
@@ -167,6 +254,7 @@ if (document.querySelector('.dashboard-body')) {
 
     document.getElementById('logoutBtn').addEventListener('click', () => { sessionStorage.clear(); window.location.href = 'index.html'; });
 
+    // ====== كارت تفاصيل وتعديل العميل ======
     const detailsModal = document.getElementById('clientDetailsModal');
     document.getElementById('closeDetailsModal').addEventListener('click', () => detailsModal.classList.remove('active'));
 
@@ -179,19 +267,55 @@ if (document.querySelector('.dashboard-body')) {
             const client = data.data;
             document.getElementById('detailClientName').innerText = client.FullName;
             document.getElementById('detailClientID').value = client.ClientID;
-            document.getElementById('detailPhone').value = client.Phone;
-            document.getElementById('detailBranch').innerHTML = globalSettings.branches.map(b => `<option value="${b}" ${b === client.PreferredBranch ? 'selected' : ''}>${b}</option>`).join('');
-            document.getElementById('detailSpecialist').innerHTML = '<option value="">لا يوجد</option>' + globalSettings.specialists.map(s => `<option value="${s}" ${s === client.AssignedSpecialist ? 'selected' : ''}>${s}</option>`).join('');
+            document.getElementById('detailBranch').value = client.PreferredBranch;
+            document.getElementById('detailSpecialist').value = client.AssignedSpecialist || "";
             document.getElementById('newNoteText').value = ''; 
+            document.getElementById('appBranch').value = client.PreferredBranch;
 
-            const phone = String(client.Phone).replace(/\D/g, '');
-            const message = `مرحباً ${client.FullName}، نتواصل معكم من مركز Be Perfect للصحة النفسية.`;
-            document.getElementById('whatsappBtn').href = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+            // عرض الأرقام المتعددة
+            const phonesContainer = document.getElementById('detailPhonesContainer');
+            phonesContainer.innerHTML = '';
+            const phones = parsePhones(client.Phone);
+            if (phones.length === 0) {
+                addDetailPhoneRow();
+            } else {
+                phones.forEach(p => addDetailPhoneRow(p.num, p.wa));
+            }
+
+            // تحديد رقم الواتساب الأول للزر
+            const waPhone = phones.find(p => p.wa);
+            const phone = waPhone ? waPhone.num : (phones[0] ? phones[0].num : '');
+            if (phone) {
+                const cleanPhone = String(phone).replace(/\D/g, '');
+                const message = `مرحباً ${client.FullName}، نتواصل معكم من مركز Be Perfect للصحة النفسية.`;
+                document.getElementById('whatsappBtn').href = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+            } else {
+                document.getElementById('whatsappBtn').href = '#';
+            }
 
             await fetchHistory(clientId);
+            await fetchAppointments(clientId);
             detailsModal.classList.add('active');
         } catch (err) { showToast('فشل تحميل بيانات العميل', 'error'); }
     }
+
+    function addDetailPhoneRow(num = '', wa = false) {
+        const container = document.getElementById('detailPhonesContainer');
+        container.innerHTML += `
+            <div class="phone-row">
+                <input type="text" class="phone-input" placeholder="01012345678" value="${num}">
+                <label class="wa-check"><input type="checkbox" class="phone-wa" ${wa ? 'checked' : ''}> واتساب</label>
+                <button type="button" class="remove-phone" onclick="removeDetailPhoneRow(this)">X</button>
+            </div>
+        `;
+    }
+
+    window.removeDetailPhoneRow = function(button) {
+        const container = document.getElementById('detailPhonesContainer');
+        if (container.children.length > 1) button.parentElement.remove();
+    }
+
+    document.getElementById('addDetailPhoneBtn').addEventListener('click', () => addDetailPhoneRow());
 
     async function fetchHistory(clientId) {
         const resHist = await fetch(`${API_URL}?action=getHistory&token=${token}&clientId=${clientId}`);
@@ -207,19 +331,82 @@ if (document.querySelector('.dashboard-body')) {
     }
 
     document.getElementById('saveClientChangesBtn').addEventListener('click', async () => {
+        // تجميع الأرقام من كارت التفاصيل
+        const phones = [];
+        document.querySelectorAll('#detailPhonesContainer .phone-row').forEach(row => {
+            const num = row.querySelector('.phone-input').value.trim();
+            const wa = row.querySelector('.phone-wa').checked;
+            if (num) phones.push({ num, wa });
+        });
+
         const data = {
             action: 'updateClient', token, clientId: currentDetailClientId,
-            branch: document.getElementById('detailBranch').value, specialist: document.getElementById('detailSpecialist').value,
-            newNote: document.getElementById('newNoteText').value, changedBy: currentUser
+            branch: document.getElementById('detailBranch').value, 
+            specialist: document.getElementById('detailSpecialist').value,
+            newNote: document.getElementById('newNoteText').value, 
+            changedBy: currentUser,
+            phones: phones // تحديث الأرقام
         };
         try {
             const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(data) });
             const result = await res.json();
-            if (result.success) { showToast(result.data.message, 'success'); document.getElementById('newNoteText').value = ''; await fetchHistory(currentDetailClientId); fetchClients(currentPage, searchQuery); fetchNotifs(); } 
-            else { showToast(result.error, 'error'); }
+            if (result.success) { 
+                showToast(result.data.message, 'success'); 
+                document.getElementById('newNoteText').value = ''; 
+                await fetchHistory(currentDetailClientId); 
+                fetchClients(currentPage, searchQuery); 
+                fetchNotifs(); 
+                openClientDetails(currentDetailClientId); // تحديث الكارت ليعكس التعديلات
+            } else { showToast(result.error, 'error'); }
         } catch (err) { showToast('فشل الاتصال', 'error'); }
     });
 
+    // ====== منطق حجز المواعيد ======
+    document.getElementById('bookAppointmentBtn').addEventListener('click', async () => {
+        const data = {
+            action: 'addAppointment', token,
+            clientId: currentDetailClientId,
+            date: document.getElementById('appDate').value,
+            time: document.getElementById('appTime').value,
+            branch: document.getElementById('appBranch').value || document.getElementById('detailBranch').value,
+            specialist: document.getElementById('appSpecialist').value,
+            createdBy: currentUser
+        };
+        
+        if (!data.date || !data.time) return showToast('يرجى إدخال اليوم والساعة', 'warning');
+        
+        try {
+            const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(data) });
+            const result = await res.json();
+            if (result.success) { 
+                showToast('تم حجز الموعد بنجاح', 'success'); 
+                document.getElementById('appDate').value = ''; 
+                document.getElementById('appTime').value = ''; 
+                fetchAppointments(currentDetailClientId); 
+                fetchNotifs(); 
+            } else { showToast(result.error, 'error'); }
+        } catch (err) { showToast('فشل الاتصال', 'error'); }
+    });
+
+    async function fetchAppointments(clientId) {
+        try {
+            const res = await fetch(`${API_URL}?action=getAppointments&token=${token}&clientId=${clientId}`);
+            const data = await res.json();
+            const list = document.getElementById('appointmentsList');
+            list.innerHTML = '';
+            if (data.success && data.data.length > 0) {
+                list.innerHTML = `<h4 style="margin-bottom:10px; font-size:14px; color:#fff;">المواعيد القادمة:</h4>`;
+                data.data.forEach(app => {
+                    list.innerHTML += `<div style="background:rgba(255,255,255,0.05); padding:10px; border-radius:8px; margin-bottom:8px;">
+                        <strong>${new Date(app.date).toLocaleDateString('ar-EG')}</strong> - ${app.time} <br>
+                        <small>الأخصائي: ${app.specialist} | الحالة: ${app.status}</small>
+                    </div>`;
+                });
+            }
+        } catch (e) { console.error('Appointments Error', e); }
+    }
+
+    // ====== منطق التقارير ======
     const reportModal = document.getElementById('reportModal');
     document.getElementById('reportBtn').addEventListener('click', () => reportModal.classList.add('active'));
     document.getElementById('closeReportModal').addEventListener('click', () => reportModal.classList.remove('active'));
@@ -242,7 +429,7 @@ if (document.querySelector('.dashboard-body')) {
                 showToast('تم تجهيز التقرير بنجاح', 'success');
                 reportModal.classList.remove('active');
             } else { showToast(data.error, 'error'); }
-        } catch (err) { showToast('فشل生成 التقرير', 'error'); }
+        } catch (err) { showToast('فشل التقرير', 'error'); }
         finally { btnText.style.display = 'inline'; loader.style.display = 'none'; btn.disabled = false; }
     });
 
@@ -269,7 +456,6 @@ if (document.querySelector('.dashboard-body')) {
                             <small style="font-size: 11px; opacity: 0.7;">${date}</small>
                         </div>`;
                     });
-                    // إضافة حدث النقر للتنقل الذكي
                     document.querySelectorAll('#notifList .notif-item').forEach(item => {
                         item.addEventListener('click', () => {
                             const actionType = item.getAttribute('data-action-type');
@@ -277,17 +463,15 @@ if (document.querySelector('.dashboard-body')) {
                             document.getElementById('notifDropdown').style.display = 'none';
                             
                             if (actionType === 'client_details' && actionId) {
-                                openClientDetails(actionId); // فتح كارت العميل
+                                openClientDetails(actionId); 
                             } else if (actionType === 'chat' && actionId) {
-                                // فتح الشات مع المستخدم المرسل
                                 document.getElementById('chatBtn').click();
                                 setTimeout(() => {
                                     const select = document.getElementById('chatTarget');
                                     select.value = actionId;
-                                    // إجبار القائمة على التحديث
                                     const event = new Event('change');
                                     select.dispatchEvent(event);
-                                }, 1500); // تأخير ثانية ونصف ليتم جلب المستخدمين أولاً
+                                }, 1500); 
                             }
                         });
                     });
@@ -302,17 +486,18 @@ if (document.querySelector('.dashboard-body')) {
             dropdown.style.display = 'none';
         } else {
             dropdown.style.display = 'block';
-            window.markNotifsRead(); // مسح الرقم الأحمر فوراً عند الفتح
+            window.markNotifsRead(); 
         }
     };
 
     window.markNotifsRead = async function() {
         try {
             await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'markNotifRead', token, user: currentUser }) });
-            document.getElementById('notifBadge').style.display = 'none'; // إخفاء الرقم فوراً
+            document.getElementById('notifBadge').style.display = 'none'; 
         } catch (e) { console.error(e); }
     };
 
+    // ====== منطق الشات ======
     const chatModal = document.getElementById('chatModal');
     document.getElementById('chatBtn').addEventListener('click', async () => {
         chatModal.classList.add('active');
@@ -519,7 +704,7 @@ if (document.querySelector('.dashboard-body')) {
         try {
             const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(data) });
             const result = await res.json();
-            if (result.success) { showToast('تم التعديل بنجاح!', 'success'); document.getElementById('editSettingForm').reset(); fetchSettings(); } 
+            if (result.success) { showToast(result.data.message, 'success'); document.getElementById('editSettingForm').reset(); fetchSettings(); } 
             else { showToast(result.error, 'error'); }
         } catch (err) { showToast('فشل الاتصال', 'error'); }
     });
