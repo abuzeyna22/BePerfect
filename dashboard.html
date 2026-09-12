@@ -32,8 +32,13 @@
         .mention-item { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.1); }
         .mention-item:hover { background: rgba(255,255,255,0.1); }
 
-        /* تحسين شكل الفواصل والقوائم المنسدلة */
         .section-divider { margin: 25px 0; border: 0; border-top: 1px solid rgba(255,255,255,0.2); }
+        
+        /* ستايل الأرقام المتعددة */
+        .phone-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+        .phone-row input { flex: 1; }
+        .phone-row .remove-phone { background: rgba(239, 71, 58, 0.3); color: #fff; border: none; border-radius: 8px; cursor: pointer; padding: 8px 12px; font-weight: bold; }
+        .phone-row .wa-check { display: flex; align-items: center; gap: 5px; font-size: 13px; color: #25D366; }
     </style>
 </head>
 <body class="dashboard-body">
@@ -93,44 +98,82 @@
         </div>
     </main>
 
-    <!-- نافذة إضافة عميل -->
+    <!-- نافذة إضافة عميل (محدثة بالأرقام والمصادر الذكية) -->
     <div id="clientModal" class="modal-overlay">
         <div class="glass-card modal-box">
             <div class="modal-header"><h3>تسجيل عميل جديد</h3><button class="close-modal" id="closeModalBtn">&times;</button></div>
             <form id="addClientForm" class="modal-form">
                 <div class="form-grid">
                     <div class="input-group"><label>الاسم الكامل *</label><input type="text" id="fullName" required></div>
-                    <div class="input-group"><label>رقم الهاتف *</label><input type="text" id="phone" required></div>
                     <div class="input-group"><label>العمر *</label><input type="number" id="age" min="1" max="120" required></div>
                     <div class="input-group"><label>الفرع المفضل *</label><select id="preferredBranch" required></select></div>
                     <div class="input-group"><label>التخصص المطلوب *</label><select id="requiredSpecialty" required></select></div>
-                    <div class="input-group"><label>مصدر العميل</label><select id="source"></select></div>
+                    
+                    <!-- قسم الأرقام المتعددة -->
+                    <div class="input-group full-width">
+                        <label>أرقام الهواتف *</label>
+                        <div id="phonesContainer" style="display:flex; flex-direction:column; gap:10px;">
+                            <div class="phone-row">
+                                <input type="text" class="phone-input" placeholder="01012345678" required>
+                                <label class="wa-check"><input type="checkbox" class="phone-wa"> واتساب</label>
+                                <button type="button" class="remove-phone" onclick="removePhoneRow(this)">X</button>
+                            </div>
+                        </div>
+                        <button type="button" id="addPhoneBtn" class="btn-primary" style="padding:5px 10px; font-size:12px; margin-top:5px; background: #2575fc;">+ إضافة رقم</button>
+                    </div>
                 </div>
+
+                <!-- قسم المصادر الذكي -->
+                <div class="form-grid" style="margin-top: 15px;">
+                    <div class="input-group"><label>مصدر العميل *</label><select id="source" required onchange="toggleSourceFields()"></select></div>
+                    <div id="referralTypeGroup" class="input-group" style="display:none;"><label>كيف عرفتنا؟ *</label><select id="referralType"></select></div>
+                    <div id="platformGroup" class="input-group" style="display:none;"><label>المنصة *</label><select id="platform"><option value="Facebook">فيسبوك</option><option value="Instagram">انستجرام</option><option value="WhatsApp">واتساب</option></select></div>
+                    <div id="campaignGroup" class="input-group" style="display:none;"><label>اسم الحملة/البوست *</label><input type="text" id="campaign" placeholder="مثال: حملة التخاطب 1"></div>
+                </div>
+
                 <div class="input-group full-width"><label>ملاحظات أولية</label><textarea id="notes" rows="3"></textarea></div>
                 <button type="submit" id="submitClientBtn" class="btn-primary"><span class="btn-text">حفظ العميل</span><div class="loader" id="clientLoader"></div></button>
             </form>
         </div>
     </div>
 
-    <!-- نافذة تفاصيل وتعديل العميل -->
+    <!-- نافذة تفاصيل وتعديل العميل (محدثة بالأرقام والمواعيد) -->
     <div id="clientDetailsModal" class="modal-overlay">
         <div class="glass-card modal-box">
             <div class="modal-header"><h3>ملف العميل: <span id="detailClientName" style="color:#ff9a44;"></span></h3><button class="close-modal" id="closeDetailsModal">&times;</button></div>
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
                 <div class="input-group"><label>كود العميل</label><input type="text" id="detailClientID" readonly></div>
-                <div class="input-group"><label>رقم الهاتف</label><input type="text" id="detailPhone" readonly></div>
+                <div class="input-group"><label>الفرع الحالي</label><select id="detailBranch"></select></div>
             </div>
+            
+            <!-- عرض الأرقام المتعددة -->
+            <h4 style="margin: 15px 0 10px; color:#ff9a44;">أرقام الهواتف</h4>
+            <div id="detailPhonesContainer"></div>
+            <button id="addDetailPhoneBtn" class="btn-primary" style="padding:5px 10px; font-size:12px; margin-bottom: 15px; background: #2575fc;">+ إضافة رقم</button>
+
             <a id="whatsappBtn" href="#" target="_blank" class="btn-whatsapp" style="width: 100%;">إرسال تنبيه واتساب للعميل</a>
+            
             <h4 style="margin: 20px 0 15px; color:#ff9a44;">تعديل البيانات</h4>
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                <div class="input-group"><label>الفرع الحالي</label><select id="detailBranch"></select></div>
                 <div class="input-group"><label>الأخصائي المسؤول</label><select id="detailSpecialist"><option value="">لا يوجد</option></select></div>
             </div>
             <div class="input-group full-width" style="margin-top:15px;">
-                <label>إضافة ملاحظة جديدة (سيتم تسجيلها في السجل بالأسفل)</label>
+                <label>إضافة ملاحظة جديدة</label>
                 <textarea id="newNoteText" rows="2" placeholder="اكتب ملاحظتك هنا..."></textarea>
             </div>
             <button id="saveClientChangesBtn" class="btn-primary" style="margin-bottom: 20px; margin-top:10px;">حفظ التعديلات والملاحظات</button>
+
+            <!-- قسم حجز المواعيد -->
+            <h4 style="margin: 20px 0 15px; color:#ff9a44;">حجز موعد / جلسة</h4>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                <div class="input-group"><label>اليوم والتاريخ *</label><input type="date" id="appDate" required></div>
+                <div class="input-group"><label>الساعة *</label><input type="time" id="appTime" required></div>
+                <div class="input-group" style="display:none;"><label>الفرع</label><input type="text" id="appBranch"></div>
+                <div class="input-group"><label>الأخصائي *</label><select id="appSpecialist"></select></div>
+            </div>
+            <button id="bookAppointmentBtn" class="btn-primary" style="background: linear-gradient(to right, #6a11cb, #2575fc); margin-bottom: 20px;">حجز الموعد</button>
+            <div id="appointmentsList" style="margin-bottom: 20px;"></div>
+
             <h4 style="margin-bottom:15px; color:#ff9a44;">سجل التغييرات والملاحظات (Timeline)</h4>
             <div class="table-container" style="max-height: 250px; overflow-y: auto;">
                 <table class="data-table"><thead><tr><th>الحقل</th><th>القديمة</th><th>الجديدة</th><th>بواسطة</th><th>التاريخ</th></tr></thead><tbody id="historyTableBody"></tbody></table>
@@ -171,7 +214,7 @@
         </div>
     </div>
 
-    <!-- نافذة إعدادات الأدمن (مطورة بالكامل) -->
+    <!-- نافذة إعدادات الأدمن -->
     <div id="adminModal" class="modal-overlay">
         <div class="glass-card modal-box" style="max-width: 800px;">
             <div class="modal-header"><h3>إعدادات النظام (للأدمن فقط)</h3><button class="close-modal" id="closeAdminModal">&times;</button></div>
@@ -182,7 +225,6 @@
             </div>
 
             <div id="tab-users" class="admin-tab-content active">
-                <!-- 1. إضافة مستخدم جديد -->
                 <h4 style="margin-bottom:15px; color:#ff9a44;">1. إضافة مستخدم جديد</h4>
                 <form id="addUserForm" class="modal-form">
                     <div class="form-grid">
@@ -200,7 +242,6 @@
 
                 <hr class="section-divider">
 
-                <!-- 2. تعديل مستخدم حالي -->
                 <h4 style="margin-bottom:15px; color:#ff9a44;">2. تعديل مستخدم حالي</h4>
                 <form id="editUserForm" class="modal-form">
                     <div class="input-group full-width">
