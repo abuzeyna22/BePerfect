@@ -1,4 +1,4 @@
-const API_URL = 'https://script.google.com/macros/s/AKfycbycRl_S3i2WSTEmEmBHckI2NpsXxypkHRASDpaR2YB1BPLUD4AMw0FWE23ElvFfoDBU/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbwaaMGxTExv8FZZEVizFsR9Qr43NEAjZBCDHCduYIux6DS4lT1UREc_NTC_tiWW6miJ/exec';
 const IMGBB_API_KEY = '71307118640265da76172e90445b208b';
 
 function showToast(message, type = 'error') {
