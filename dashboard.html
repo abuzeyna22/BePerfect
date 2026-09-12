@@ -113,7 +113,7 @@
         </div>
     </main>
 
-    <!-- نافذة إضافة عميل -->
+    <!-- نافذة إضافة عميل (محدثة بحجز الموعد) -->
     <div id="clientModal" class="modal-overlay">
         <div class="glass-card modal-box">
             <div class="modal-header"><h3>تسجيل عميل جديد</h3><button class="close-modal" id="closeModalBtn">&times;</button></div>
@@ -145,6 +145,15 @@
                 </div>
 
                 <div class="input-group full-width"><label>ملاحظات أولية</label><textarea id="notes" rows="3"></textarea></div>
+                
+                <!-- قسم حجز أول موعد -->
+                <h4 style="margin: 20px 0 15px; color:#ff9a44;">حجز أول موعد / جلسة (اختياري)</h4>
+                <div class="form-grid" style="margin-bottom: 15px;">
+                    <div class="input-group"><label>اليوم والتاريخ</label><input type="date" id="newAppDate"></div>
+                    <div class="input-group"><label>الساعة</label><input type="time" id="newAppTime"></div>
+                    <div class="input-group full-width"><label>الأخصائي المسؤول</label><select id="newAppSpecialist"><option value="">لا يوجد</option></select></div>
+                </div>
+
                 <button type="submit" id="submitClientBtn" class="btn-primary"><span class="btn-text">حفظ العميل</span><div class="loader" id="clientLoader"></div></button>
             </form>
         </div>
@@ -225,7 +234,7 @@
         </div>
     </div>
 
-    <!-- نافذة إعدادات الأدمن (محدثة برفع الصور) -->
+    <!-- نافذة إعدادات الأدمن (محدثة بـ سكرتارية) -->
     <div id="adminModal" class="modal-overlay">
         <div class="glass-card modal-box" style="max-width: 800px;">
             <div class="modal-header"><h3>إعدادات النظام (للأدمن فقط)</h3><button class="close-modal" id="closeAdminModal">&times;</button></div>
@@ -246,7 +255,7 @@
                         <div class="input-group"><label>رقم واتساب</label><input type="text" id="addWhatsApp" placeholder="2010xxxxxxx"></div>
                         <div class="input-group">
                             <label>الصلاحية *</label>
-                            <select id="addRole"><option value="Secretary">سكرتير</option><option value="Moderator">مودريتور</option><option value="Admin">أدمن</option></select>
+                            <select id="addRole"><option value="Secretary">سكرتارية</option><option value="Moderator">مودريتور</option><option value="Admin">أدمن</option></select>
                         </div>
                         <div class="input-group">
                             <label>الفرع *</label>
@@ -284,7 +293,7 @@
                         <div class="input-group"><label>رقم واتساب</label><input type="text" id="editWhatsApp"></div>
                         <div class="input-group">
                             <label>الصلاحية</label>
-                            <select id="editRole"><option value="Secretary">سكرتير</option><option value="Moderator">مودريتور</option><option value="Admin">أدمن</option></select>
+                            <select id="editRole"><option value="Secretary">سكرتارية</option><option value="Moderator">مودريتور</option><option value="Admin">أدمن</option></select>
                         </div>
                         <div class="input-group">
                             <label>الفرع</label>
