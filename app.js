@@ -1,7 +1,6 @@
-const API_URL = 'https://script.google.com/macros/s/AKfycby30u3KILmgsIZcLSuftLaOmpMAYYms_OwguSSo66aLnjcnMIZjtY0Am_O_88jaRO6K/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbzDhf2Qxj6Z1M9C15ive4dv3hVw7EEBfM-5OxUnyan_DjuDjM5IGzf84QJvkPth_MaG/exec';
 const IMGBB_API_KEY = '71307118640265da76172e90445b208b';
 
-// نظام التنبيه الصوتي
 let audioCtx;
 function playBeep() {
     try {
@@ -120,6 +119,19 @@ if (document.querySelector('.dashboard-body')) {
         } catch (error) { console.error('Settings Error:', error); }
     }
 
+    async function fetchStats() {
+        try {
+            const res = await fetch(`${API_URL}?action=getStats&token=${token}`);
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('totalClients').innerText = data.data.total;
+                document.getElementById('todayClients').innerText = data.data.today;
+                document.getElementById('pendingClients').innerText = data.data.pending24;
+                document.getElementById('lateClients').innerText = data.data.late;
+            }
+        } catch (e) { console.error('Stats Error:', e); }
+    }
+
     function populateDropdowns() {
         document.getElementById('preferredBranch').innerHTML = globalSettings.branches.map(b => `<option value="${b}">${b}</option>`).join('');
         document.getElementById('requiredSpecialty').innerHTML = globalSettings.specialties.map(s => `<option value="${s}">${s}</option>`).join('');
@@ -228,6 +240,7 @@ if (document.querySelector('.dashboard-body')) {
             if (result.success) { 
                 showToast(result.data.message, 'success'); 
                 fetchClients(currentPage, searchQuery); 
+                fetchStats();
             } else { showToast(result.error, 'error'); }
         } catch (err) { showToast('فشل الاتصال', 'error'); }
     }
@@ -348,6 +361,7 @@ if (document.querySelector('.dashboard-body')) {
                 modal.classList.remove('active'); 
                 fetchClients(currentPage, searchQuery); 
                 fetchNotifs();
+                fetchStats();
             } else { showToast(data.error, 'error'); }
         } catch (error) { showToast('فشل الاتصال بالخادم', 'error'); }
         finally { btnText.style.display = 'inline'; loader.style.display = 'none'; submitBtn.disabled = false; }
@@ -462,6 +476,7 @@ if (document.querySelector('.dashboard-body')) {
                 await fetchHistory(currentDetailClientId); 
                 fetchClients(currentPage, searchQuery); 
                 fetchNotifs(); 
+                fetchStats();
                 openClientDetails(currentDetailClientId);
             } else { showToast(result.error, 'error'); }
         } catch (err) { showToast('فشل الاتصال', 'error'); }
@@ -552,7 +567,6 @@ if (document.querySelector('.dashboard-body')) {
                 badge.innerText = unread;
                 badge.style.display = unread > 0 ? 'flex' : 'none';
                 
-                // تشغيل الصوت عند وصول إشعار جديد
                 if (unread > lastUnreadCount) {
                     playBeep();
                 }
@@ -907,7 +921,7 @@ if (document.querySelector('.dashboard-body')) {
                 body: JSON.stringify({ action: 'bulkAddClients', token, branch, clients: clientsArray, createdBy: currentUser })
             });
             const result = await res.json();
-            if (result.success) { showToast(result.data.message, 'success'); document.getElementById('importClientsForm').reset(); fetchClients(currentPage, searchQuery); fetchNotifs(); } 
+            if (result.success) { showToast(result.data.message, 'success'); document.getElementById('importClientsForm').reset(); fetchClients(currentPage, searchQuery); fetchNotifs(); fetchStats(); } 
             else { showToast(result.error, 'error'); }
         } catch (err) { showToast('فشل قراءة الملف', 'error'); }
         finally { btnText.style.display = 'inline'; loader.style.display = 'none'; importBtn.disabled = false; }
@@ -916,5 +930,7 @@ if (document.querySelector('.dashboard-body')) {
     fetchSettings();
     fetchClients(currentPage, searchQuery);
     fetchNotifs();
+    fetchStats();
     setInterval(fetchNotifs, 30000); 
+    setInterval(fetchStats, 60000); // تحديث الإحصائيات كل دقيقة
 }
