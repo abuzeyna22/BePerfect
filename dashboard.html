@@ -34,11 +34,15 @@
 
         .section-divider { margin: 25px 0; border: 0; border-top: 1px solid rgba(255,255,255,0.2); }
         
-        /* ستايل الأرقام المتعددة */
         .phone-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
         .phone-row input { flex: 1; }
         .phone-row .remove-phone { background: rgba(239, 71, 58, 0.3); color: #fff; border: none; border-radius: 8px; cursor: pointer; padding: 8px 12px; font-weight: bold; }
         .phone-row .wa-check { display: flex; align-items: center; gap: 5px; font-size: 13px; color: #25D366; }
+        
+        /* ستايل الفلاتر */
+        .filters-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .filters-bar select { padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: #fff; font-size: 13px; box-shadow: inset 0 2px 5px rgba(0,0,0,0.2); }
+        .filters-bar select option { color: #333; }
     </style>
 </head>
 <body class="dashboard-body">
@@ -86,10 +90,19 @@
                 <h2>إدارة العملاء</h2>
                 <button id="addClientBtn" class="btn-primary">+ إضافة عميل جديد</button>
             </div>
+            
+            <!-- شريط الفلاتر الذكي -->
+            <div class="filters-bar">
+                <select id="filterBranch"><option value="All">كل الفروع</option></select>
+                <select id="filterSource"><option value="All">كل المصادر</option></select>
+                <select id="filterSpecialty"><option value="All">كل التخصصات</option></select>
+                <select id="filterSpecialist"><option value="All">كل الأخصائيين</option></select>
+            </div>
+            
             <div class="search-bar"><input type="text" id="searchInput" placeholder="ابحث بالاسم أو رقم الهاتف..."></div>
             <div class="table-container">
                 <table class="data-table">
-                    <thead><tr><th>كود العميل</th><th>الاسم</th><th>الهاتف</th><th>الفرع</th><th>التخصص</th><th>الحالة</th><th>إجراءات</th></tr></thead>
+                    <thead><tr><th>كود العميل</th><th>الاسم</th><th>الهاتف</th><th>الفرع</th><th>التخصص</th><th>تاريخ التسجيل</th><th>الحالة</th><th>إجراءات</th></tr></thead>
                     <tbody id="clientsTableBody"></tbody>
                 </table>
                 <div id="emptyState" class="empty-state" style="display: none;"><p>لا يوجد عملاء لعرضهم حالياً.</p></div>
@@ -98,7 +111,7 @@
         </div>
     </main>
 
-    <!-- نافذة إضافة عميل (محدثة بالأرقام والمصادر الذكية) -->
+    <!-- نافذة إضافة عميل -->
     <div id="clientModal" class="modal-overlay">
         <div class="glass-card modal-box">
             <div class="modal-header"><h3>تسجيل عميل جديد</h3><button class="close-modal" id="closeModalBtn">&times;</button></div>
@@ -109,7 +122,6 @@
                     <div class="input-group"><label>الفرع المفضل *</label><select id="preferredBranch" required></select></div>
                     <div class="input-group"><label>التخصص المطلوب *</label><select id="requiredSpecialty" required></select></div>
                     
-                    <!-- قسم الأرقام المتعددة -->
                     <div class="input-group full-width">
                         <label>أرقام الهواتف *</label>
                         <div id="phonesContainer" style="display:flex; flex-direction:column; gap:10px;">
@@ -123,7 +135,6 @@
                     </div>
                 </div>
 
-                <!-- قسم المصادر الذكي -->
                 <div class="form-grid" style="margin-top: 15px;">
                     <div class="input-group"><label>مصدر العميل *</label><select id="source" required onchange="toggleSourceFields()"></select></div>
                     <div id="referralTypeGroup" class="input-group" style="display:none;"><label>كيف عرفتنا؟ *</label><select id="referralType"></select></div>
@@ -137,7 +148,7 @@
         </div>
     </div>
 
-    <!-- نافذة تفاصيل وتعديل العميل (محدثة بالأرقام والمواعيد) -->
+    <!-- نافذة تفاصيل وتعديل العميل -->
     <div id="clientDetailsModal" class="modal-overlay">
         <div class="glass-card modal-box">
             <div class="modal-header"><h3>ملف العميل: <span id="detailClientName" style="color:#ff9a44;"></span></h3><button class="close-modal" id="closeDetailsModal">&times;</button></div>
@@ -146,7 +157,6 @@
                 <div class="input-group"><label>الفرع الحالي</label><select id="detailBranch"></select></div>
             </div>
             
-            <!-- عرض الأرقام المتعددة -->
             <h4 style="margin: 15px 0 10px; color:#ff9a44;">أرقام الهواتف</h4>
             <div id="detailPhonesContainer"></div>
             <button id="addDetailPhoneBtn" class="btn-primary" style="padding:5px 10px; font-size:12px; margin-bottom: 15px; background: #2575fc;">+ إضافة رقم</button>
@@ -163,7 +173,6 @@
             </div>
             <button id="saveClientChangesBtn" class="btn-primary" style="margin-bottom: 20px; margin-top:10px;">حفظ التعديلات والملاحظات</button>
 
-            <!-- قسم حجز المواعيد -->
             <h4 style="margin: 20px 0 15px; color:#ff9a44;">حجز موعد / جلسة</h4>
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
                 <div class="input-group"><label>اليوم والتاريخ *</label><input type="date" id="appDate" required></div>
