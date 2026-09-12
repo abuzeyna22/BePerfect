@@ -172,7 +172,7 @@ if (document.querySelector('.dashboard-body')) {
             paginationDiv.appendChild(btn);
         }
         document.querySelectorAll('.btn-details').forEach(btn => {
-            btn.addEventListener('click', (e) => openClientDetails(e.target.getAttribute('data-clientid')));
+            btn.addEventListener('click', (e) => openClientDetails(e.currentTarget.getAttribute('data-clientid')));
         });
     }
 
@@ -305,9 +305,10 @@ if (document.querySelector('.dashboard-body')) {
     async function openClientDetails(clientId) {
         currentDetailClientId = clientId;
         try {
-            const res = await fetch(`${API_URL}?action=getClientById&token=${token}&clientId=${clientId}`);
+            const res = await fetch(`${API_URL}?action=getClientById&token=${token}&clientId=${encodeURIComponent(clientId)}`);
             const data = await res.json();
             if (!data.success) return showToast(data.error, 'error');
+            
             const client = data.data;
             document.getElementById('detailClientName').innerText = client.FullName;
             document.getElementById('detailClientID').value = client.ClientID;
@@ -330,10 +331,15 @@ if (document.querySelector('.dashboard-body')) {
                 document.getElementById('whatsappBtn').href = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
             } else { document.getElementById('whatsappBtn').href = '#'; }
 
+            detailsModal.classList.add('active'); // إظهار الكارت فوراً قبل جلب التواريخ والمواعيد
+            
             await fetchHistory(clientId);
             await fetchAppointments(clientId);
-            detailsModal.classList.add('active');
-        } catch (err) { showToast('فشل تحميل بيانات العميل', 'error'); }
+            
+        } catch (err) { 
+            console.error('Client Details Error:', err);
+            showToast('فشل تحميل بيانات العميل (تحقق من Console)', 'error'); 
+        }
     }
 
     function addDetailPhoneRow(num = '', wa = false) {
@@ -355,16 +361,22 @@ if (document.querySelector('.dashboard-body')) {
     document.getElementById('addDetailPhoneBtn').addEventListener('click', () => addDetailPhoneRow());
 
     async function fetchHistory(clientId) {
-        const resHist = await fetch(`${API_URL}?action=getHistory&token=${token}&clientId=${clientId}`);
-        const dataHist = await resHist.json();
-        const historyBody = document.getElementById('historyTableBody');
-        historyBody.innerHTML = '';
-        if (dataHist.success && dataHist.data.length > 0) {
-            dataHist.data.forEach(h => {
-                const date = new Date(h.date).toLocaleString('ar-EG');
-                historyBody.innerHTML += `<tr><td>${h.field}</td><td>${h.oldVal}</td><td>${h.newVal}</td><td>${h.changedBy}</td><td>${date}</td></tr>`;
-            });
-        } else { historyBody.innerHTML = `<tr><td colspan="5" style="text-align:center; opacity:0.7;">لا يوجد تغييرات مسجلة</td></tr>`; }
+        try {
+            const resHist = await fetch(`${API_URL}?action=getHistory&token=${token}&clientId=${encodeURIComponent(clientId)}`);
+            const dataHist = await resHist.json();
+            const historyBody = document.getElementById('historyTableBody');
+            historyBody.innerHTML = '';
+            if (dataHist.success && dataHist.data.length > 0) {
+                dataHist.data.forEach(h => {
+                    const date = new Date(h.date).toLocaleString('ar-EG');
+                    historyBody.innerHTML += `<tr><td>${h.field}</td><td>${h.oldVal}</td><td>${h.newVal}</td><td>${h.changedBy}</td><td>${date}</td></tr>`;
+                });
+            } else { historyBody.innerHTML = `<tr><td colspan="5" style="text-align:center; opacity:0.7;">لا يوجد تغييرات مسجلة</td></tr>`; }
+        } catch (e) {
+            console.error('History Fetch Error:', e);
+            const historyBody = document.getElementById('historyTableBody');
+            if (historyBody) historyBody.innerHTML = `<tr><td colspan="5" style="text-align:center; opacity:0.7;">لا يوجد تغييرات مسجلة</td></tr>`;
+        }
     }
 
     document.getElementById('saveClientChangesBtn').addEventListener('click', async () => {
@@ -418,7 +430,7 @@ if (document.querySelector('.dashboard-body')) {
 
     async function fetchAppointments(clientId) {
         try {
-            const res = await fetch(`${API_URL}?action=getAppointments&token=${token}&clientId=${clientId}`);
+            const res = await fetch(`${API_URL}?action=getAppointments&token=${token}&clientId=${encodeURIComponent(clientId)}`);
             const data = await res.json();
             const list = document.getElementById('appointmentsList');
             list.innerHTML = '';
@@ -612,7 +624,6 @@ if (document.querySelector('.dashboard-body')) {
         } catch (err) { showToast('فشل إرسال الرسالة', 'error'); }
     });
 
-    // ====== نظام تذاكر الدعم الفني ======
     const ticketModal = document.getElementById('ticketModal');
     document.getElementById('ticketBtn').addEventListener('click', () => ticketModal.classList.add('active'));
     document.getElementById('closeTicketModal').addEventListener('click', () => ticketModal.classList.remove('active'));
