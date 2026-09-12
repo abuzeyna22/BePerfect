@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="style.css">
     <style>
         .notif-container { position: relative; }
-        .notif-badge { position: absolute; top: -5px; left: -5px; background: #ff3b3b; color: white; border-radius: 50%; width: 20px; height: 20px; display: none; justify-content: center; align-items: center; font-size: 11px; font-weight: bold; }
+        .notif-badge { position: absolute; top: -5px; left: -5px; background: #ff3b3b; color: white; border-radius: 50%; width: 20px; height: 20px; display: none; justify-content: center; align-items: center; font-size: 11px; font-weight: bold; animation: pulse 2s infinite; }
         .notif-dropdown { position: absolute; top: 50px; left: 0; width: 300px; background: rgba(40, 40, 70, 0.95); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.2); border-radius: 10px; z-index: 2000; display: none; max-height: 400px; overflow-y: auto; }
         .notif-item { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 14px; }
         .notif-item.unread { background: rgba(95, 211, 110, 0.1); }
@@ -39,13 +39,17 @@
         .phone-row .remove-phone { background: rgba(239, 71, 58, 0.3); color: #fff; border: none; border-radius: 8px; cursor: pointer; padding: 8px 12px; font-weight: bold; }
         .phone-row .wa-check { display: flex; align-items: center; gap: 5px; font-size: 13px; color: #25D366; }
         
-        .filters-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-        .filters-bar select { padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: #fff; font-size: 13px; box-shadow: inset 0 2px 5px rgba(0,0,0,0.2); }
+        .filters-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+        .filters-bar select, .filters-bar label { padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: #fff; font-size: 13px; box-shadow: inset 0 2px 5px rgba(0,0,0,0.2); }
         .filters-bar select option { color: #333; }
+        .filters-bar label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
         
         .upload-preview { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; display: none; margin-top: 10px; }
         .upload-btn { background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); padding: 8px; border-radius: 8px; cursor: pointer; text-align: center; margin-top: 5px; }
         .upload-btn:hover { background: rgba(255,255,255,0.2); }
+        
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 59, 59, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(255, 59, 59, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 59, 59, 0); } }
+        .status-late { animation: pulse 2s infinite; border: 2px solid #ff3b3b !important; }
     </style>
 </head>
 <body class="dashboard-body">
@@ -100,12 +104,23 @@
                 <select id="filterSource"><option value="All">كل المصادر</option></select>
                 <select id="filterSpecialty"><option value="All">كل التخصصات</option></select>
                 <select id="filterSpecialist"><option value="All">كل الأخصائيين</option></select>
+                <select id="filterStatus">
+                    <option value="All">كل الحالات</option>
+                    <option value="عميل محتمل">عميل محتمل</option>
+                    <option value="تم الحجز">تم الحجز</option>
+                    <option value="تحت الجلسات">تحت الجلسات</option>
+                    <option value="متأخر/متوقف">متأخر/متوقف</option>
+                    <option value="مكتمل">مكتمل</option>
+                </select>
+                <label><input type="checkbox" id="filterArchived" style="margin: 0;"> عرض المؤرشفين</label>
             </div>
             
             <div class="search-bar"><input type="text" id="searchInput" placeholder="ابحث بالاسم أو رقم الهاتف..."></div>
             <div class="table-container">
                 <table class="data-table">
-                    <thead><tr><th>كود العميل</th><th>الاسم</th><th>الهاتف</th><th>الفرع</th><th>التخصص</th><th>تاريخ التسجيل</th><th>الحالة</th><th>إجراءات</th></tr></thead>
+                    <thead><tr>
+                        <th>كود العميل</th><th>الاسم</th><th>الهاتف</th><th>الفرع</th><th>المصدر</th><th>أضيف بواسطة</th><th>تاريخ التسجيل</th><th>الحالة</th><th>إجراءات</th>
+                    </tr></thead>
                     <tbody id="clientsTableBody"></tbody>
                 </table>
                 <div id="emptyState" class="empty-state" style="display: none;"><p>لا يوجد عملاء لعرضهم حالياً.</p></div>
@@ -174,12 +189,22 @@
 
             <a id="whatsappBtn" href="#" target="_blank" class="btn-whatsapp" style="width: 100%;">إرسال تنبيه واتساب للعميل</a>
             
-            <h4 style="margin: 20px 0 15px; color:#ff9a44;">تعديل البيانات</h4>
+            <h4 style="margin: 20px 0 15px; color:#ff9a44;">تعديل البيانات والحالة</h4>
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                 <div class="input-group"><label>الأخصائي المسؤول</label><select id="detailSpecialist"><option value="">لا يوجد</option></select></div>
+                <div class="input-group">
+                    <label>حالة العميل *</label>
+                    <select id="detailStatus">
+                        <option value="عميل محتمل">عميل محتمل</option>
+                        <option value="تم الحجز">تم الحجز</option>
+                        <option value="تحت الجلسات">تحت الجلسات</option>
+                        <option value="متأخر/متوقف">متأخر/متوقف</option>
+                        <option value="مكتمل">مكتمل</option>
+                    </select>
+                </div>
             </div>
             <div class="input-group full-width" style="margin-top:15px;">
-                <label>إضافة ملاحظة جديدة</label>
+                <label>إضافة ملاحظة جديدة (يمكنك عمل منشن @ لموظف)</label>
                 <textarea id="newNoteText" rows="2" placeholder="اكتب ملاحظتك هنا..."></textarea>
             </div>
             <button id="saveClientChangesBtn" class="btn-primary" style="margin-bottom: 20px; margin-top:10px;">حفظ التعديلات والملاحظات</button>
@@ -284,7 +309,7 @@
                             <select id="addUserBranch"></select>
                         </div>
                         <div class="input-group full-width">
-                            <label>صارة الملف الشخصي</label>
+                            <label>صورة الملف الشخصي</label>
                             <div style="display:flex; align-items:center; gap:15px;">
                                 <input type="file" id="addProfilePicFile" accept="image/*" style="display:none;">
                                 <button type="button" class="upload-btn" onclick="document.getElementById('addProfilePicFile').click()">اختر صورة</button>
@@ -322,7 +347,7 @@
                             <select id="editUserBranch"></select>
                         </div>
                         <div class="input-group full-width">
-                            <label>صارة الملف الشخصي</label>
+                            <label>صورة الملف الشخصي</label>
                             <div style="display:flex; align-items:center; gap:15px;">
                                 <input type="file" id="editProfilePicFile" accept="image/*" style="display:none;">
                                 <button type="button" class="upload-btn" onclick="document.getElementById('editProfilePicFile').click()">اختر صورة</button>
