@@ -5,7 +5,6 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const IMGBB_API_KEY = '71307118640265da76172e90445b208b';
 const SECRET_TOKEN = 'BP_CRM_SECURE_TOKEN_2024';
 
-// دالة تشفير SHA-256 في المتصفح
 async function sha256(message) {
     const msgBuffer = new TextEncoder().encode(message);
     const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
@@ -77,7 +76,7 @@ async function uploadImageToImgBB(file) {
     } catch (err) { throw new Error('فشل الاتصال بمزود الصور'); }
 }
 
-// ====== منطق تسجيل الدخول (Supabase) ======
+// ====== منطق تسجيل الدخول ======
 if (document.getElementById('loginForm')) {
     document.getElementById('loginForm').addEventListener('submit', async function(e) {
         e.preventDefault();
@@ -91,11 +90,9 @@ if (document.getElementById('loginForm')) {
         btnText.style.display = 'none'; loader.style.display = 'block'; loginBtn.disabled = true;
         
         try {
-            // جلب المستخدم من قاعدة البيانات
             const { data, error } = await db.from('users').select('*').eq('username', username).single();
             if (error || !data) throw new Error('اسم المستخدم غير موجود');
             
-            // تشفير كلمة المرور المدخلة ومقارنتها
             const hashedPassword = await sha256(password + SECRET_TOKEN);
             if (data.password_hash !== hashedPassword) throw new Error('كلمة المرور غير صحيحة');
             
@@ -153,7 +150,7 @@ if (document.querySelector('.dashboard-body')) {
             document.getElementById('totalClients').innerText = total || 0;
             document.getElementById('todayClients').innerText = todayCount || 0;
             document.getElementById('lateClients').innerText = late || 0;
-            document.getElementById('pendingClients').innerText = '0'; // يتم حسابها لاحقا
+            document.getElementById('pendingClients').innerText = '0'; 
         } catch (e) { console.error('Stats Error:', e); }
     }
 
@@ -167,7 +164,7 @@ if (document.querySelector('.dashboard-body')) {
             
             if (fBranch !== 'All') query = query.eq('preferred_branch', fBranch);
             if (fStatus !== 'All') query = query.eq('status', fStatus);
-            if (search) query = query.or(`full_name.ilike.%${search}%,phones.cs.[{"num":"${search}"}]`); // بحث بالنص أو JSONB
+            if (search) query = query.ilike('full_name', `%${search}%`);
             
             const start = (page - 1) * 20;
             const { data, count, error } = await query.order('created_at', { ascending: false }).range(start, start + 19);
@@ -236,7 +233,6 @@ if (document.querySelector('.dashboard-body')) {
         } catch (err) { showToast('فشل الاتصال', 'error'); }
     }
 
-    // ... (الأحداث الأخرى كالبحث والفلاتر تبقى كما هي)
     let searchTimeout;
     document.getElementById('searchInput').addEventListener('input', (e) => {
         clearTimeout(searchTimeout);
@@ -247,7 +243,38 @@ if (document.querySelector('.dashboard-body')) {
         document.getElementById(id).addEventListener('change', () => { currentPage = 1; fetchClients(currentPage, searchQuery); });
     });
 
-    // منطق إضافة العميل (Supabase)
+    // الأزرار الأساسية (Modals)
+    const clientModal = document.getElementById('clientModal');
+    document.getElementById('addClientBtn').addEventListener('click', () => {
+        document.getElementById('phonesContainer').innerHTML = `
+            <div class="phone-row">
+                <input type="text" class="phone-input" placeholder="01012345678" required>
+                <label class="wa-check"><input type="checkbox" class="phone-wa"> واتساب</label>
+                <button type="button" class="remove-phone" onclick="removePhoneRow(this)">X</button>
+            </div>
+        `;
+        clientModal.classList.add('active');
+    });
+    document.getElementById('closeModalBtn').addEventListener('click', () => clientModal.classList.remove('active'));
+    document.getElementById('logoutBtn').addEventListener('click', () => { sessionStorage.clear(); window.location.href = 'index.html'; });
+
+    document.getElementById('addPhoneBtn').addEventListener('click', () => {
+        const container = document.getElementById('phonesContainer');
+        container.innerHTML += `
+            <div class="phone-row">
+                <input type="text" class="phone-input" placeholder="01012345678" required>
+                <label class="wa-check"><input type="checkbox" class="phone-wa"> واتساب</label>
+                <button type="button" class="remove-phone" onclick="removePhoneRow(this)">X</button>
+            </div>
+        `;
+    });
+
+    window.removePhoneRow = function(button) {
+        const container = document.getElementById('phonesContainer');
+        if (container.children.length > 1) button.parentElement.remove();
+    };
+
+    // إضافة العميل (Supabase)
     document.getElementById('addClientForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         const submitBtn = document.getElementById('submitClientBtn');
@@ -264,7 +291,7 @@ if (document.querySelector('.dashboard-body')) {
         if (phones.length === 0) return showToast('يرجى إدخال رقم هاتف واحد على الأقل', 'warning');
 
         const clientData = {
-            client_code: 'BP-' + new Date().getTime().toString().slice(-6), // كود مبدئي سيتم تحديثه لاحقا
+            client_code: 'BP-TEMP', 
             full_name: document.getElementById('fullName').value, 
             age: document.getElementById('age').value, 
             preferred_branch: document.getElementById('preferredBranch').value,
@@ -283,20 +310,21 @@ if (document.querySelector('.dashboard-body')) {
             if (error) throw error;
             
             const newClientId = data[0].id;
-            // تحديث الكود ليكون BP-1001 ... متسلسل (بسيط)
             const { count } = await db.from('clients').select('*', { count: 'exact', head: true });
             await db.from('clients').update({ client_code: 'BP-' + (1000 + count) }).eq('id', newClientId);
             
             showToast('تم إضافة العميل بنجاح!', 'success'); 
             document.getElementById('addClientForm').reset(); 
-            document.getElementById('clientModal').classList.remove('active'); 
+            clientModal.classList.remove('active'); 
             fetchClients(currentPage, searchQuery); 
-            fetchNotifs(); fetchStats();
+            fetchStats();
         } catch (error) { showToast(error.message, 'error'); }
         finally { btnText.style.display = 'inline'; loader.style.display = 'none'; submitBtn.disabled = false; }
     });
 
-    // فتح تفاصيل العميل (Supabase)
+    const detailsModal = document.getElementById('clientDetailsModal');
+    document.getElementById('closeDetailsModal').addEventListener('click', () => detailsModal.classList.remove('active'));
+
     async function openClientDetails(clientId) {
         currentDetailClientId = clientId;
         try {
@@ -324,11 +352,27 @@ if (document.querySelector('.dashboard-body')) {
                 document.getElementById('whatsappBtn').href = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
             } else { document.getElementById('whatsappBtn').href = '#'; }
 
-            document.getElementById('clientDetailsModal').classList.add('active'); 
+            detailsModal.classList.add('active'); 
             await fetchHistory(clientId);
             await fetchAppointments(clientId);
         } catch (err) { showToast('فشل تحميل بيانات العميل', 'error'); }
     }
+
+    function addDetailPhoneRow(num = '', wa = false) {
+        const container = document.getElementById('detailPhonesContainer');
+        container.innerHTML += `
+            <div class="phone-row">
+                <input type="text" class="phone-input" placeholder="01012345678" value="${num}">
+                <label class="wa-check"><input type="checkbox" class="phone-wa" ${wa ? 'checked' : ''}> واتساب</label>
+                <button type="button" class="remove-phone" onclick="removeDetailPhoneRow(this)">X</button>
+            </div>
+        `;
+    }
+    window.removeDetailPhoneRow = function(button) {
+        const container = document.getElementById('detailPhonesContainer');
+        if (container.children.length > 1) button.parentElement.remove();
+    };
+    document.getElementById('addDetailPhoneBtn').addEventListener('click', () => addDetailPhoneRow());
 
     async function fetchHistory(clientId) {
         try {
@@ -345,7 +389,6 @@ if (document.querySelector('.dashboard-body')) {
         } catch (e) { console.error('History Error:', e); }
     }
 
-    // حفظ التعديلات (Supabase)
     document.getElementById('saveClientChangesBtn').addEventListener('click', async () => {
         const phones = [];
         document.querySelectorAll('#detailPhonesContainer .phone-row').forEach(row => {
@@ -365,9 +408,7 @@ if (document.querySelector('.dashboard-body')) {
             const { error } = await db.from('clients').update(updateData).eq('id', currentDetailClientId);
             if (error) throw error;
             
-            // تسجيل في الهيستوري
-            const histData = { client_id: currentDetailClientId, field: 'تعديل بيانات', new_val: 'تم حفظ التعديلات', changed_by: currentUser };
-            await db.from('history').insert([histData]);
+            await db.from('history').insert([{ client_id: currentDetailClientId, field: 'تعديل بيانات', new_val: 'تم حفظ التعديلات', changed_by: currentUser }]);
             
             const newNote = document.getElementById('newNoteText').value;
             if (newNote.trim() !== '') {
@@ -378,16 +419,219 @@ if (document.querySelector('.dashboard-body')) {
             document.getElementById('newNoteText').value = ''; 
             await fetchHistory(currentDetailClientId); 
             fetchClients(currentPage, searchQuery); 
-            fetchNotifs(); fetchStats();
+            fetchStats();
         } catch (err) { showToast('فشل حفظ التعديلات', 'error'); }
     });
 
-    // باقي الدوال (المواعيد، الشات، التنبيهات، الإعدادات) تتبع نفس النمط في Supabase
-    // للاختصار، تم ترك الأكواد الأساسية ويمكنني إرسال الباقي إذا احتجته
-    
-    fetchClients(currentPage, searchQuery);
-    fetchNotifs();
-    fetchStats();
-    setInterval(fetchNotifs, 30000); 
-    setInterval(fetchStats, 60000); 
-}
+    document.getElementById('bookAppointmentBtn').addEventListener('click', async () => {
+        const appData = {
+            client_id: currentDetailClientId,
+            app_date: document.getElementById('appDate').value,
+            app_time: document.getElementById('appTime').value,
+            branch: document.getElementById('detailBranch').value,
+            specialist: document.getElementById('appSpecialist').value,
+            created_by: currentUser,
+            status: 'مجدول'
+        };
+        if (!appData.app_date || !appData.app_time) return showToast('يرجى إدخال اليوم والساعة', 'warning');
+        try {
+            const { error } = await db.from('appointments').insert([appData]);
+            if (error) throw error;
+            await db.from('history').insert([{ client_id: currentDetailClientId, field: 'حجز موعد', new_val: `${appData.app_date} ${appData.app_time}`, changed_by: currentUser }]);
+            showToast('تم حجز الموعد بنجاح', 'success');
+            document.getElementById('appDate').value = ''; document.getElementById('appTime').value = '';
+            fetchAppointments(currentDetailClientId); fetchHistory(currentDetailClientId);
+        } catch (err) { showToast('فشل حجز الموعد', 'error'); }
+    });
+
+    async function fetchAppointments(clientId) {
+        try {
+            const { data, error } = await db.from('appointments').select('*').eq('client_id', clientId).order('app_date', { ascending: false });
+            if (error) throw error;
+            const list = document.getElementById('appointmentsList');
+            list.innerHTML = '';
+            if (data && data.length > 0) {
+                list.innerHTML = `<h4 style="margin-bottom:10px; font-size:14px; color:#fff;">المواعيد القادمة:</h4>`;
+                data.forEach(app => {
+                    list.innerHTML += `<div style="background:rgba(255,255,255,0.05); padding:10px; border-radius:8px; margin-bottom:8px;">
+                        <strong>${new Date(app.app_date).toLocaleDateString('ar-EG')}</strong> - ${app.app_time || ''} <br>
+                        <small>الأخصائي: ${app.specialist || '-'} | الحالة: ${app.status}</small>
+                    </div>`;
+                });
+            }
+        } catch (e) { console.error('Appointments Error:', e); }
+    }
+
+    // التنبيهات (Supabase)
+    async function fetchNotifs() {
+        try {
+            const { data, error } = await db.from('notifications').select('*').or(`target_user.eq.${currentUser},target_user.eq.Admin`).order('created_at', { ascending: false }).limit(20);
+            if (error) throw error;
+            const unread = data.filter(n => !n.is_read).length;
+            const badge = document.getElementById('notifBadge');
+            badge.innerText = unread;
+            badge.style.display = unread > 0 ? 'flex' : 'none';
+            if (unread > lastUnreadCount) playBeep();
+            lastUnreadCount = unread;
+            
+            const list = document.getElementById('notifList');
+            list.innerHTML = '';
+            if (!data || data.length === 0) {
+                list.innerHTML = '<div class="notif-item" style="text-align:center; opacity:0.7;">لا توجد تنبيهات</div>';
+            } else {
+                data.forEach(n => {
+                    const date = new Date(n.created_at).toLocaleString('ar-EG');
+                    list.innerHTML += `<div class="notif-item ${!n.is_read ? 'unread' : ''}" style="cursor: pointer;">
+                        <p style="margin-bottom:5px;">${n.message}</p>
+                        <small style="font-size: 11px; opacity: 0.7;">${date}</small>
+                    </div>`;
+                });
+            }
+        } catch (e) { console.error('Notif Error:', e); }
+    }
+    window.toggleNotifs = function() {
+        const dropdown = document.getElementById('notifDropdown');
+        if (dropdown.style.display === 'block') { dropdown.style.display = 'none'; } 
+        else { dropdown.style.display = 'block'; window.markNotifsRead(); }
+    };
+    window.markNotifsRead = async function() {
+        try {
+            await db.from('notifications').update({ is_read: true }).or(`target_user.eq.${currentUser},target_user.eq.Admin`).eq('is_read', false);
+            document.getElementById('notifBadge').style.display = 'none';
+            lastUnreadCount = 0;
+        } catch (e) { console.error(e); }
+    };
+
+    // الشات (Supabase)
+    const chatModal = document.getElementById('chatModal');
+    document.getElementById('chatBtn').addEventListener('click', async () => {
+        chatModal.classList.add('active');
+        try {
+            const { data, error } = await db.from('users').select('*').neq('username', currentUser);
+            if (error) throw error;
+            const select = document.getElementById('chatTarget');
+            select.innerHTML = '<option value="General">شات عام (للجميع)</option>';
+            allUsersForMention = [];
+            data.forEach(u => {
+                const roleMap = { 'Admin': 'أدمن', 'Moderator': 'مودريتور', 'Secretary': 'سكرتارية' };
+                const displayRole = roleMap[u.role] || 'موظف';
+                select.innerHTML += `<option value="${u.username}">${u.username} (${u.job_title || displayRole})</option>`;
+                allUsersForMention.push(u);
+            });
+        } catch (e) { console.error(e); }
+        startChatPolling();
+    });
+    document.getElementById('closeChatModal').addEventListener('click', () => { chatModal.classList.remove('active'); clearInterval(chatPolling); });
+    document.getElementById('chatTarget').addEventListener('change', fetchChat);
+
+    async function fetchChat() {
+        const target = document.getElementById('chatTarget').value;
+        try {
+            let query = db.from('chat').select('*');
+            if (target === 'General') {
+                query = query.eq('receiver', 'General');
+            } else {
+                query = query.or(`and(sender.eq.${currentUser},receiver.eq.${target}),and(sender.eq.${target},receiver.eq.${currentUser})`);
+            }
+            const { data, error } = await query.order('created_at', { ascending: true }).limit(50);
+            if (error) throw error;
+            const box = document.getElementById('chatBox');
+            box.innerHTML = '';
+            if (data && data.length > 0) {
+                data.forEach(msg => {
+                    const isMe = msg.sender === currentUser;
+                    const time = new Date(msg.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+                    let msgText = (msg.message || '').replace(/@(\w+)/g, '<span style="color:#ff9a44; font-weight:bold;">@$1</span>');
+                    box.innerHTML += `<div class="chat-msg ${isMe ? 'me' : 'other'}"><div style="font-size: 11px; opacity: 0.8; margin-bottom: 4px;">${isMe ? 'أنت' : msg.sender} - ${time}</div>${msgText}</div>`;
+                });
+                box.scrollTop = box.scrollHeight;
+            }
+        } catch (e) { console.error('Chat Fetch Error:', e); }
+    }
+    function startChatPolling() { fetchChat(); clearInterval(chatPolling); chatPolling = setInterval(fetchChat, 3000); }
+
+    document.getElementById('chatForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const input = document.getElementById('chatInput');
+        const msg = input.value.trim();
+        if (!msg) return;
+        const target = document.getElementById('chatTarget').value;
+        try {
+            const { error } = await db.from('chat').insert([{ sender: currentUser, receiver: target, message: msg }]);
+            if (error) throw error;
+            if (target !== 'General') {
+                await db.from('notifications').insert([{ target_user: target, message: `رسالة جديدة من ${currentUser}`, action_type: 'chat', action_id: currentUser }]);
+            }
+            input.value = '';
+            document.getElementById('mentionDropdown').style.display = 'none';
+            fetchChat(); fetchNotifs();
+        } catch (err) { showToast('فشل إرسال الرسالة', 'error'); }
+    });
+
+    // التذاكر (Supabase)
+    const ticketModal = document.getElementById('ticketModal');
+    document.getElementById('ticketBtn').addEventListener('click', () => ticketModal.classList.add('active'));
+    document.getElementById('closeTicketModal').addEventListener('click', () => ticketModal.classList.remove('active'));
+    document.getElementById('ticketForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('submitTicketBtn');
+        const btnText = btn.querySelector('.btn-text');
+        const loader = document.getElementById('ticketLoader');
+        const ticketData = {
+            sender: currentUser,
+            type: document.getElementById('ticketType').value,
+            subject: document.getElementById('ticketSubject').value,
+            message: document.getElementById('ticketMessage').value,
+            status: 'مفتوحة'
+        };
+        btnText.style.display = 'none'; loader.style.display = 'block'; btn.disabled = true;
+        try {
+            const { error } = await db.from('tickets').insert([ticketData]);
+            if (error) throw error;
+            showToast('تم إرسال تذكرتك بنجاح', 'success'); 
+            document.getElementById('ticketForm').reset(); 
+            ticketModal.classList.remove('active'); 
+        } catch (err) { showToast('فشل إرسال التذكرة', 'error'); }
+        finally { btnText.style.display = 'inline'; loader.style.display = 'none'; btn.disabled = false; }
+    });
+
+    // لوحة الأدمن (Supabase)
+    const adminBtn = document.getElementById('adminBtn');
+    const adminModal = document.getElementById('adminModal');
+    if (sessionStorage.getItem('userRole') === 'Admin') { adminBtn.style.display = 'flex'; }
+    adminBtn.addEventListener('click', () => { adminModal.classList.add('active'); loadUsersForAdmin(); });
+    document.getElementById('closeAdminModal').addEventListener('click', () => adminModal.classList.remove('active'));
+
+    document.querySelectorAll('.admin-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
+            tab.classList.add('active');
+            document.getElementById(`tab-${tab.getAttribute('data-tab')}`).classList.add('active');
+        });
+    });
+
+    async function loadUsersForAdmin() {
+        try {
+            const { data, error } = await db.from('users').select('*');
+            if (error) throw error;
+            const select = document.getElementById('editUserSelect');
+            select.innerHTML = '<option value="">-- اختر مستخدم من القائمة --</option>';
+            allUsersForEdit = data || [];
+            data.forEach(u => {
+                const roleMap = { 'Admin': 'أدمن', 'Moderator': 'مودريتور', 'Secretary': 'سكرتارية' };
+                const displayRole = roleMap[u.role] || 'موظف';
+                select.innerHTML += `<option value="${u.id}">${u.username} (${u.job_title || displayRole})</option>`;
+            });
+        } catch (err) { showToast('فشل تحميل المستخدمين', 'error'); }
+    }
+
+    document.getElementById('editUserSelect').addEventListener('change', function() {
+        const userId = this.value;
+        const user = allUsersForEdit.find(u => u.id === userId);
+        if (user) {
+            document.getElementById('editUserId').value = user.id;
+            document.getElementById('editUsername').value = user.username; 
+            document.getElementById('editPassword').value = ''; 
+            document.getElementById('editJobTitle').value = user.job_title || '';
+            document.getElementById('editEmail
