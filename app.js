@@ -1,7 +1,20 @@
-// ====== إعدادات Supabase ======
+console.log("Starting Be Perfect CRM App...");
+
 const SUPABASE_URL = 'https://wwucyjrbadjaerqgyzyn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3dWN5anJiYWRqYWVycWd5enluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAzNjk0MzksImV4cCI6MjEwNTk0NTQzOX0._08cTLRhNfXwiNCaY1zOvmaMxAzVVkAiPqnHYRYQRU8';
-const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let db;
+try {
+    if (typeof supabase !== 'undefined') {
+        db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        console.log("Supabase connected successfully.");
+    } else {
+        console.error("Supabase library not loaded!");
+    }
+} catch (e) {
+    console.error("Supabase Init Error:", e);
+}
+
 const IMGBB_API_KEY = '71307118640265da76172e90445b208b';
 const SECRET_TOKEN = 'BP_CRM_SECURE_TOKEN_2024';
 
@@ -31,6 +44,7 @@ function playBeep() {
 
 function showToast(message, type = 'error') {
     const container = document.getElementById('toast-container');
+    if (!container) return;
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     toast.innerText = message;
@@ -78,8 +92,11 @@ async function uploadImageToImgBB(file) {
 
 // ====== منطق تسجيل الدخول ======
 if (document.getElementById('loginForm')) {
+    console.log("Login form detected. Attaching listener.");
     document.getElementById('loginForm').addEventListener('submit', async function(e) {
         e.preventDefault();
+        console.log("Login button clicked.");
+        
         const username = document.getElementById('username').value.trim();
         const password = document.getElementById('password').value.trim();
         const loginBtn = document.getElementById('loginBtn');
@@ -90,6 +107,8 @@ if (document.getElementById('loginForm')) {
         btnText.style.display = 'none'; loader.style.display = 'block'; loginBtn.disabled = true;
         
         try {
+            if (!db) throw new Error("الاتصال بقاعدة البيانات غير جاهز");
+            
             const { data, error } = await db.from('users').select('*').eq('username', username).single();
             if (error || !data) throw new Error('اسم المستخدم غير موجود');
             
@@ -102,7 +121,10 @@ if (document.getElementById('loginForm')) {
             sessionStorage.setItem('username', data.username);
             setTimeout(() => window.location.href = 'dashboard.html', 1000);
             
-        } catch (error) { showToast(error.message, 'error'); }
+        } catch (error) { 
+            console.error("Login Error:", error);
+            showToast(error.message, 'error'); 
+        }
         finally { btnText.style.display = 'inline'; loader.style.display = 'none'; loginBtn.disabled = false; }
     });
 }
@@ -243,7 +265,6 @@ if (document.querySelector('.dashboard-body')) {
         document.getElementById(id).addEventListener('change', () => { currentPage = 1; fetchClients(currentPage, searchQuery); });
     });
 
-    // الأزرار الأساسية (Modals)
     const clientModal = document.getElementById('clientModal');
     document.getElementById('addClientBtn').addEventListener('click', () => {
         document.getElementById('phonesContainer').innerHTML = `
@@ -274,7 +295,6 @@ if (document.querySelector('.dashboard-body')) {
         if (container.children.length > 1) button.parentElement.remove();
     };
 
-    // إضافة العميل (Supabase)
     document.getElementById('addClientForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         const submitBtn = document.getElementById('submitClientBtn');
@@ -462,7 +482,6 @@ if (document.querySelector('.dashboard-body')) {
         } catch (e) { console.error('Appointments Error:', e); }
     }
 
-    // التنبيهات (Supabase)
     async function fetchNotifs() {
         try {
             const { data, error } = await db.from('notifications').select('*').or(`target_user.eq.${currentUser},target_user.eq.Admin`).order('created_at', { ascending: false }).limit(20);
@@ -502,7 +521,6 @@ if (document.querySelector('.dashboard-body')) {
         } catch (e) { console.error(e); }
     };
 
-    // الشات (Supabase)
     const chatModal = document.getElementById('chatModal');
     document.getElementById('chatBtn').addEventListener('click', async () => {
         chatModal.classList.add('active');
@@ -568,7 +586,6 @@ if (document.querySelector('.dashboard-body')) {
         } catch (err) { showToast('فشل إرسال الرسالة', 'error'); }
     });
 
-    // التذاكر (Supabase)
     const ticketModal = document.getElementById('ticketModal');
     document.getElementById('ticketBtn').addEventListener('click', () => ticketModal.classList.add('active'));
     document.getElementById('closeTicketModal').addEventListener('click', () => ticketModal.classList.remove('active'));
@@ -595,7 +612,6 @@ if (document.querySelector('.dashboard-body')) {
         finally { btnText.style.display = 'inline'; loader.style.display = 'none'; btn.disabled = false; }
     });
 
-    // لوحة الأدمن (Supabase)
     const adminBtn = document.getElementById('adminBtn');
     const adminModal = document.getElementById('adminModal');
     if (sessionStorage.getItem('userRole') === 'Admin') { adminBtn.style.display = 'flex'; }
@@ -634,4 +650,120 @@ if (document.querySelector('.dashboard-body')) {
             document.getElementById('editUsername').value = user.username; 
             document.getElementById('editPassword').value = ''; 
             document.getElementById('editJobTitle').value = user.job_title || '';
-            document.getElementById('editEmail
+            document.getElementById('editEmail').value = user.email || '';
+            document.getElementById('editWhatsApp').value = user.whatsapp || '';
+            document.getElementById('editProfilePic').value = user.profile_pic || '';
+            document.getElementById('editProfilePicPreview').src = user.profile_pic || '';
+            document.getElementById('editProfilePicPreview').style.display = user.profile_pic ? 'block' : 'none';
+            document.getElementById('editRole').value = user.role;
+            document.getElementById('editUserBranch').value = user.branch;
+        } else { document.getElementById('editUserForm').reset(); }
+    });
+
+    document.getElementById('addProfilePicFile').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        showToast('جاري رفع الصورة...', 'warning');
+        try {
+            const url = await uploadImageToImgBB(file);
+            document.getElementById('addProfilePic').value = url;
+            document.getElementById('addProfilePicPreview').src = url;
+            document.getElementById('addProfilePicPreview').style.display = 'block';
+            showToast('تم رفع الصورة بنجاح', 'success');
+        } catch (err) { showToast(err.message, 'error'); }
+    });
+
+    document.getElementById('editProfilePicFile').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        showToast('جاري رفع الصورة...', 'warning');
+        try {
+            const url = await uploadImageToImgBB(file);
+            document.getElementById('editProfilePic').value = url;
+            document.getElementById('editProfilePicPreview').src = url;
+            document.getElementById('editProfilePicPreview').style.display = 'block';
+            showToast('تم رفع الصورة بنجاح', 'success');
+        } catch (err) { showToast(err.message, 'error'); }
+    });
+
+    document.getElementById('addUserForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const pass = document.getElementById('addPassword').value;
+        const hashedPass = await sha256(pass + SECRET_TOKEN);
+        const userData = {
+            username: document.getElementById('addUsername').value,
+            password_hash: hashedPass,
+            job_title: document.getElementById('addJobTitle').value,
+            email: document.getElementById('addEmail').value,
+            whatsapp: document.getElementById('addWhatsApp').value,
+            profile_pic: document.getElementById('addProfilePic').value,
+            role: document.getElementById('addRole').value,
+            branch: document.getElementById('addUserBranch').value || 'All'
+        };
+        try {
+            const { error } = await db.from('users').insert([userData]);
+            if (error) throw error;
+            showToast('تم إضافة المستخدم بنجاح', 'success'); 
+            document.getElementById('addUserForm').reset(); 
+            document.getElementById('addProfilePicPreview').style.display = 'none'; 
+            loadUsersForAdmin(); 
+        } catch (err) { showToast(err.message, 'error'); }
+    });
+
+    document.getElementById('editUserForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const userId = document.getElementById('editUserId').value;
+        if (!userId) return showToast('يرجى اختيار مستخدم من القائمة أولاً', 'warning');
+        const newPass = document.getElementById('editPassword').value;
+        const userData = {
+            job_title: document.getElementById('editJobTitle').value,
+            email: document.getElementById('editEmail').value,
+            whatsapp: document.getElementById('editWhatsApp').value,
+            profile_pic: document.getElementById('editProfilePic').value,
+            role: document.getElementById('editRole').value,
+            branch: document.getElementById('editUserBranch').value || 'All'
+        };
+        if (newPass && newPass.length > 0) {
+            userData.password_hash = await sha256(newPass + SECRET_TOKEN);
+        }
+        try {
+            const { error } = await db.from('users').update(userData).eq('id', userId);
+            if (error) throw error;
+            showToast('تم تحديث بيانات المستخدم بنجاح', 'success'); 
+            document.getElementById('editUserForm').reset(); 
+            document.getElementById('editProfilePicPreview').style.display = 'none'; 
+            loadUsersForAdmin(); 
+        } catch (err) { showToast(err.message, 'error'); }
+    });
+
+    const reportModal = document.getElementById('reportModal');
+    document.getElementById('reportBtn').addEventListener('click', () => reportModal.classList.add('active'));
+    document.getElementById('closeReportModal').addEventListener('click', () => reportModal.classList.remove('active'));
+    document.getElementById('reportForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('generateReportBtn');
+        const btnText = btn.querySelector('.btn-text');
+        const loader = document.getElementById('reportLoader');
+        const month = parseInt(document.getElementById('reportMonth').value);
+        const year = parseInt(document.getElementById('reportYear').value);
+        const branch = document.getElementById('reportBranch').value;
+        
+        btnText.style.display = 'none'; loader.style.display = 'block'; btn.disabled = true;
+        try {
+            let query = db.from('clients').select('*').gte('created_at', `${year}-${String(month).padStart(2, '0')}-01T00:00:00Z`).lt('created_at', `${year}-${String(month + 1).padStart(2, '0')}-01T00:00:00Z`);
+            if (branch !== 'All') query = query.eq('preferred_branch', branch);
+            const { data, error } = await query;
+            if (error) throw error;
+            exportToCSV(data || [], `Report_${month}_${year}_${branch}.csv`);
+            showToast('تم تجهيز التقرير بنجاح', 'success');
+            reportModal.classList.remove('active');
+        } catch (err) { showToast('فشل التقرير', 'error'); }
+        finally { btnText.style.display = 'inline'; loader.style.display = 'none'; btn.disabled = false; }
+    });
+
+    fetchClients(currentPage, searchQuery);
+    fetchNotifs();
+    fetchStats();
+    setInterval(fetchNotifs, 30000); 
+    setInterval(fetchStats, 60000); 
+}
